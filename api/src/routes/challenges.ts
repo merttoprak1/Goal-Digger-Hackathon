@@ -95,6 +95,24 @@ export function challengeRoutes(store:ReturnType<typeof openSessions>,stakes?:St
   if(!store.getPublished(String(req.params.id)))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
   res.json({outcome:store.getOutcome(String(req.params.id))});
  });
+ router.post('/:id/close-betting',(req,res)=>{
+  if(!store.getPublished(String(req.params.id)))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  if(!z.object({}).strict().safeParse(req.body).success)throw new ApiError(400,'Send an empty JSON object.','INVALID_SNAPSHOT');
+  res.json({snapshot:store.closeBetting(String(req.params.id))});
+ });
+ router.get('/:id/betting-snapshot',(req,res)=>{
+  if(!store.getPublished(String(req.params.id)))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  res.json({snapshot:store.getBettingSnapshot(String(req.params.id))});
+ });
+ router.post('/:id/payout-plan',(req,res)=>{
+  if(!store.getPublished(String(req.params.id)))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  if(!z.object({}).strict().safeParse(req.body).success)throw new ApiError(400,'Send an empty JSON object.','INVALID_PAYOUT_PLAN');
+  res.json({plan:store.createPayoutPlan(String(req.params.id))});
+ });
+ router.get('/:id/payout-plan',(req,res)=>{
+  if(!store.getPublished(String(req.params.id)))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  res.json({plan:store.getPayoutPlan(String(req.params.id))});
+ });
  router.post('/:id/publish',(req,res)=>{
   const challenge=store.getChallenge(res.locals.participant.id,String(req.params.id));
   if(!challenge)throw new ApiError(404,'Challenge not found.','NOT_FOUND');
