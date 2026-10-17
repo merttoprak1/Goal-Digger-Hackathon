@@ -9,7 +9,7 @@ const walletDataDir = `${dataDir}/custom-signet`
 const indexerUrl = process.env.WDK_INDEXER_URL || 'https://esplora.signet.kaleidoswap.com'
 const transportEndpoint = 'rpcs://proxy.iriswallet.com/0.2/json-rpc'
 const mode = process.argv[2] || 'check'
-if (!['check', 'receive', 'refresh', 'prepare-slots', 'send-back'].includes(mode)) throw new Error('Use check, receive, refresh, prepare-slots, or send-back.')
+if (!['check', 'receive', 'refresh', 'prepare-slots', 'send-back', 'deposit'].includes(mode)) throw new Error('Invalid WDK operation.')
 const assetId = 'rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0'
 const amountAtomic = 1_000_000
 process.env.GOAL_DIGGER_CUSTOM_SIGNET = '1'
@@ -43,7 +43,16 @@ try {
   // Cache the key pair first so dispose can erase it and close the wallet.
   void account.keyPair
   await account.syncWallet()
-  if (mode === 'receive') {
+  if (mode === 'deposit') {
+    const amount = process.argv[3]
+    if (!/^[1-9][0-9]{0,8}$/.test(amount || '') || BigInt(amount) > 100_000_000n) throw new Error('Invalid deposit amount.')
+    const receive = await account.receiveAsset({
+      witness: true, assetId, amount: Number(amount), durationSeconds: 3600,
+      minConfirmations: 1, transportEndpoints: [transportEndpoint]
+    })
+    if (!receive.recipientId?.startsWith('sbc:wvout:')) throw new Error('Invalid CustomSignet invoice.')
+    result = { assetId, amountAtomic: amount, receive }
+  } else if (mode === 'receive') {
     const invoicePath = `${walletDataDir}/usdt-receive.json`
     if (fs.existsSync(invoicePath)) {
       result = JSON.parse(fs.readFileSync(invoicePath, 'utf8'))

@@ -68,6 +68,9 @@ The WDK wallet received [50,000 confirmed test sats](docs/WDK-FUNDING.md) for RG
 It received [1 confirmed test USDT](docs/WDK-DEPOSIT.md) through an explicit CustomSignet adapter.
 It then [signed and returned that token](docs/WDK-RETURN.md) to the original node. Both wallets confirmed settlement.
 
+The [private deposit endpoint](docs/VAULT-API.md) creates WDK invoices with saved payment IDs on localhost port 4001.
+It requires a backend token. Deposit confirmation and payout endpoints remain future steps.
+
 ## Local RGB: second integration step
 
 After the node is running and unlocked, run this read-only check:
