@@ -203,7 +203,6 @@ export default function App() {
   return (
     <>
       <AppHeader />
-      <p className="bg-amber-50 px-6 py-2 text-center text-sm text-amber-900">The challenge board uses demo data. Wallet and Payouts use live local services.</p>
       <Outlet />
       <AppFooter />
     </>

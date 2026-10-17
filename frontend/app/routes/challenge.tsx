@@ -1,8 +1,11 @@
-import { data, Link } from "react-router";
+import { Link } from "react-router";
 
 import type { Route } from "./+types/challenge";
-import { fetchChallenge } from "~/lib/api";
-import { POOL_TONE, STATUS_BADGE } from "~/lib/challenge-view";
+import { BoardError, boardSession, createBoardClient } from "~/lib/board";
+
+const client = createBoardClient({
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? "/api",
+});
 
 export function meta({ data: loaderData }: Route.MetaArgs) {
   const challenge = loaderData?.challenge;
@@ -16,11 +19,33 @@ export function meta({ data: loaderData }: Route.MetaArgs) {
 }
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  const challenge = await fetchChallenge(params.challengeId);
-  if (!challenge) {
-    throw data("Challenge not found", { status: 404 });
+  const token = boardSession(localStorage).read();
+  if (!token) {
+    return {
+      challenge: null,
+      problem: "Sign in on the challenges page to read this challenge.",
+    };
   }
-  return { challenge };
+  try {
+    return { challenge: await client.get(token, params.challengeId), problem: null };
+  } catch (cause) {
+    if (cause instanceof BoardError && cause.status === 401) {
+      boardSession(localStorage).clear();
+      return {
+        challenge: null,
+        problem: "Sign in on the challenges page to read this challenge.",
+      };
+    }
+    return {
+      challenge: null,
+      problem:
+        cause instanceof BoardError && cause.status === 404
+          ? "Challenge not found."
+          : cause instanceof Error
+            ? cause.message
+            : "The challenge could not be read.",
+    };
+  }
 }
 
 function formatDeadline(value: string): string {
@@ -34,31 +59,35 @@ function formatDeadline(value: string): string {
 }
 
 export default function ChallengeDetail({ loaderData }: Route.ComponentProps) {
-  const { challenge } = loaderData;
+  const { challenge, problem } = loaderData;
+  if (!challenge) {
+    return (
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-8 lg:px-8">
+        <Link
+          to="/challenges"
+          className="text-xs font-semibold text-slate-500 transition hover:text-indigo-600"
+        >
+          ← All challenges
+        </Link>
+        <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-800">
+          {problem}
+        </p>
+      </main>
+    );
+  }
 
   const fields = [
+    { label: "Creator stake", value: `${challenge.stakeUsdt} USDT` },
     {
-      label: "Creator Stake",
-      value: `${challenge.stakeUsdt} USDT`,
-      tone: "text-slate-900",
-    },
-    {
-      label: "Opponent Pool",
+      label: "Eligible pool",
       value: challenge.poolUsdt ? `${challenge.poolUsdt} USDT` : "— USDT",
-      tone: challenge.poolUsdt
-        ? POOL_TONE[challenge.status]
-        : "text-slate-400",
     },
-    {
-      label: "Proof Source",
-      value: challenge.proofSource,
-      tone: "text-slate-900",
-    },
-    {
-      label: "Proof Deadline",
-      value: formatDeadline(challenge.proofDeadline),
-      tone: "text-slate-900",
-    },
+    { label: "Confirmed pool", value: `${challenge.confirmedPoolUsdt} USDT` },
+    { label: "Proof source", value: challenge.proofSource },
+    { label: "Success rule", value: challenge.successRule },
+    { label: "Betting cutoff", value: formatDeadline(challenge.bettingCutoff) },
+    { label: "Starts", value: formatDeadline(challenge.startsAt) },
+    { label: "Proof deadline", value: formatDeadline(challenge.proofDeadline) },
   ];
 
   return (
@@ -73,9 +102,9 @@ export default function ChallengeDetail({ loaderData }: Route.ComponentProps) {
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase ${STATUS_BADGE[challenge.status]}`}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase ${challenge.badge}`}
           >
-            {challenge.status}
+            {challenge.statusLabel}
           </span>
           <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
             {challenge.template} {challenge.templateEmoji}
@@ -101,27 +130,14 @@ export default function ChallengeDetail({ loaderData }: Route.ComponentProps) {
               <span className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                 {field.label}
               </span>
-              <span
-                className={`mt-1 block font-mono text-sm font-bold ${field.tone}`}
-              >
+              <span className="mt-1 block text-sm font-bold text-slate-900">
                 {field.value}
               </span>
             </div>
           ))}
         </div>
 
-        <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-slate-50 p-4">
-          <span className="text-xs font-semibold text-indigo-600">
-            {challenge.action.kind === "button"
-              ? `Available action: ${challenge.action.label}`
-              : challenge.action.label}
-          </span>
-          <span className="text-[11px] font-medium text-slate-400">
-            {challenge.action.kind === "button"
-              ? "Counter-stakes open on the challenges board"
-              : challenge.action.note}
-          </span>
-        </div>
+        <p className="mt-6 text-sm text-slate-600">{challenge.note}</p>
       </div>
     </main>
   );

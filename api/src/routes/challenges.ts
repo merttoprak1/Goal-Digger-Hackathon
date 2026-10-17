@@ -17,7 +17,7 @@ export function challengeRoutes(store:ReturnType<typeof openSessions>,stakes?:St
   const funded=creator && Date.parse(creator.creditedAt)<Date.parse(challenge.bettingCutoff);
   const open=Date.now()<Date.parse(challenge.bettingCutoff);
   const outcome=store.getOutcome(challenge.id);
-  return {...challenge,publishedAt,reviewRequired,outcome,
+  return {...challenge,publishedAt,reviewRequired,outcome,creatorDisplayName:store.nameOf(challenge.creatorId),
     confirmedPoolAtomic:credits.reduce((total,c)=>total+BigInt(c.amountAtomic),0n).toString(),
     eligiblePoolAtomic:timely.reduce((total,c)=>total+BigInt(c.amountAtomic),0n).toString(),
     status:reviewRequired?'funding_review':outcome?(outcome.status==='success'?'succeeded':'failed'):publishedAt?(open?'open':'betting_closed'):funded?'funded':'draft'};

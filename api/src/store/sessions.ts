@@ -35,6 +35,10 @@ export function openSessions(databasePath:string,now:()=>number=()=>Date.now()){
    const row=db.prepare('SELECT p.* FROM sessions s JOIN participants p ON p.id=s.participant_id WHERE s.token_hash=? AND s.expires_at>?').get(hash(token),now());
    return row?{id:String(row.id),displayName:String(row.display_name),createdAt:String(row.created_at)}:null;
   },
+  nameOf(id:string){
+   const row=db.prepare('SELECT display_name FROM participants WHERE id=?').get(id);
+   return row?String(row.display_name):'Unknown participant';
+  },
   publication(id:string){const row=db.prepare('SELECT published_at FROM publications WHERE challenge_id=?').get(id);return row?String(row.published_at):null;},
   publish(id:string){db.prepare('INSERT OR IGNORE INTO publications VALUES(?,?)').run(id,new Date(now()).toISOString());},
   getPublished(id:string){const row=db.prepare('SELECT c.result FROM challenges c JOIN publications p ON p.challenge_id=c.id WHERE c.id=?').get(id);return row?JSON.parse(String(row.result)):null;},

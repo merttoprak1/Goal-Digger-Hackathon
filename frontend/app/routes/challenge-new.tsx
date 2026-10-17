@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router";
 import type { Route } from "./+types/challenge-new";
 import { Icon } from "~/components/icon";
 import { askGoaly } from "~/lib/goaly";
-import { createChallenge } from "~/lib/api";
+import { boardSession, createBoardClient } from "~/lib/board";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Create Challenge · Goal Digger" }];
@@ -12,8 +12,6 @@ export function meta({}: Route.MetaArgs) {
 
 /* --------------------------------- config -------------------------------- */
 
-/** Placeholder for the signed-in user until auth exists. */
-const CREATOR = "Mert Toprak";
 const WALLET_USDT = 82.5;
 const ORACLE_LABEL = "Apple Health + Camera Feed";
 const HORIZON_OPTIONS = [3, 5, 7, 14];
@@ -108,21 +106,6 @@ type ChatMessage = {
 
 type VisibilityId = "public" | "solo";
 type ForfeitId = "donate" | "burn" | "rollover";
-
-/* --------------------------------- helpers ------------------------------- */
-
-/** `+03:00`-style offset, which is what the API schema expects. */
-function isoWithOffset(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  const offsetMinutes = -date.getTimezoneOffset();
-  const sign = offsetMinutes >= 0 ? "+" : "-";
-  const absolute = Math.abs(offsetMinutes);
-  return [
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
-    `${sign}${pad(Math.floor(absolute / 60))}:${pad(absolute % 60)}`,
-  ].join("");
-}
 
 /* ------------------------------- components ------------------------------ */
 
@@ -260,16 +243,23 @@ export default function ChallengeNew() {
       Number.isFinite(stakeNumber) && stakeNumber > 0
         ? String(stakeNumber)
         : "1";
-    const deadline = new Date(Date.now() + horizonDays * 86_400_000);
 
     try {
-      await createChallenge({
-        template: "custom",
-        creator: CREATOR,
+      const token = boardSession(localStorage).read();
+      if (!token) {
+        throw new Error(
+          "Create or restore a participant on the Challenges page first.",
+        );
+      }
+      await createBoardClient({
+        baseUrl: import.meta.env.VITE_API_BASE_URL ?? "/api",
+      }).createCustom(token, {
         title,
-        stakeUsdt: amount,
+        successRule: goalText,
+        stake: amount,
+        horizonDays,
         proofSource: ORACLE_LABEL,
-        proofDeadline: isoWithOffset(deadline),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       navigate("/challenges");
     } catch (cause) {
@@ -303,7 +293,7 @@ export default function ChallengeNew() {
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
           ORACLE SYNCED: MUTINYNET BLOCK #849,203
           <span className="text-emerald-300">•</span>
-          Challenge Demo
+          Draft only
         </span>
       </div>
 
@@ -316,7 +306,7 @@ export default function ChallengeNew() {
           Create Custom Challenge
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base">
-          Define your milestone and proof terms. This demo saves challenge details.
+          Define your milestone and proof terms. Saving creates a live custom draft.
           Wallet deposits need the challenge backend.
         </p>
       </div>
@@ -796,13 +786,13 @@ export default function ChallengeNew() {
                 )}
                 {pending === "deploy"
                   ? "Saving challenge…"
-                  : "Save Demo Challenge"}
+                  : "Save challenge draft"}
               </button>
             </div>
 
             <p className="mt-3 text-center text-[11px] font-medium text-slate-400">
-              By locking funds you authorize Goaly AI Oracle to attest state
-              transitions based on verified health data.
+              This saves a custom draft. It does not move funds. Visibility,
+              charity, and forfeit choices are not stored yet.
             </p>
           </section>
         </div>

@@ -1,7 +1,7 @@
 # Frontend winner payouts
 
 Open `/payouts` from the main navigation.
-This screen uses the live challenge API, even while the challenge board uses demo data.
+This screen uses the live challenge API. The challenge board uses the same participant session.
 The development proxy sends `/api` requests to localhost port 4002.
 The QVAC proxy stays on port 4000.
 
@@ -39,9 +39,8 @@ The key is a Goal Digger session token, not a wallet seed phrase.
 
 A new demo participant gets a new identity.
 Reusing a display name does not recover another identity or its stakes.
-The challenge board still uses its existing demo records.
-Those records do not create live winnings, participant stakes, or claim requests.
-Connecting that board to the live challenge lifecycle remains a separate step.
+The challenge board reads the same participant session and the live challenge list.
+A draft saved there is a real challenge record. It does not create a stake or a claim.
 
 ## Local setup
 

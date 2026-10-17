@@ -28,7 +28,7 @@ it('only the funded creator can publish and published terms become readable to o
  await f.fund();const pub=await f.post('/publish',{});expect(pub.status).toBe(200);expect(pub.body.challenge.status).toBe('open');
  expect((await f.post('/publish',{})).body.challenge.publishedAt).toBe(pub.body.challenge.publishedAt);
  expect((await f.get('')).body.challenge.successRule).toBe(f.challenge.successRule);
- expect((await request(f.app).get('/api/challenges').set('Authorization',`Bearer ${f.b.token}`)).body.challenges).toHaveLength(1);
+ const listed=(await request(f.app).get('/api/challenges').set('Authorization',`Bearer ${f.b.token}`)).body.challenges;expect(listed).toHaveLength(1);expect(listed[0].creatorDisplayName).toBe('Mert');
 });
 it('opponent invoices require publication and reject self-bets, supporting bets, and changed amounts',async()=>{
  const f=await setup();expect((await f.post('/opponent-deposit',{amountAtomic:'2000000'},f.b.token)).status).toBe(404);
