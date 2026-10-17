@@ -223,6 +223,41 @@ function UserBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+function StakeChip({
+  label,
+  value,
+  active,
+  onSelect,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      className={[
+        "relative cursor-pointer rounded-lg px-2.5 py-1 font-mono text-[11px] font-bold transition-colors",
+        active
+          ? "text-white"
+          : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700",
+      ].join(" ")}
+    >
+      {/* Same hand-off trick as the header nav: one pill, moved between chips. */}
+      {active ? (
+        <motion.span
+          layoutId="stake-chip"
+          transition={{ type: "spring", stiffness: 480, damping: 34 }}
+          className="absolute inset-0 rounded-lg bg-emerald-600"
+        />
+      ) : null}
+      <span className="relative z-10">{label}</span>
+    </button>
+  );
+}
+
 function DeployStep({
   label,
   state,
@@ -766,27 +801,20 @@ export default function ChallengeNew() {
 
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {QUICK_STAKES.map((amount) => (
-                    <button
+                    <StakeChip
                       key={amount}
-                      type="button"
-                      onClick={() => setStake(amount)}
-                      className={[
-                        "cursor-pointer rounded-lg px-2.5 py-1 font-mono text-[11px] font-bold transition",
-                        stake === amount
-                          ? "bg-emerald-600 text-white"
-                          : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700",
-                      ].join(" ")}
-                    >
-                      {amount} USDT
-                    </button>
+                      label={`${amount} USDT`}
+                      value={amount}
+                      active={stakeNumber === Number(amount)}
+                      onSelect={setStake}
+                    />
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => setStake(WALLET_USDT.toFixed(2))}
-                    className="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-mono text-[11px] font-bold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                  >
-                    MAX
-                  </button>
+                  <StakeChip
+                    label="MAX"
+                    value={WALLET_USDT.toFixed(2)}
+                    active={stakeNumber === WALLET_USDT}
+                    onSelect={setStake}
+                  />
                 </div>
               </div>
 

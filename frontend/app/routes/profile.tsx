@@ -462,16 +462,24 @@ export default function Profile({ loaderData }: Route.ComponentProps) {
                   type="button"
                   onClick={() => setTab(item.id)}
                   className={[
-                    "flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-sm font-bold whitespace-nowrap transition",
+                    "relative flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-sm font-bold whitespace-nowrap transition-colors",
                     active
-                      ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
+                      ? "text-slate-900"
                       : "text-slate-500 hover:bg-white/70 hover:text-slate-800",
                   ].join(" ")}
                 >
-                  {item.label}
+                  {/* One pill, handed between tabs, as in the header nav. */}
+                  {active ? (
+                    <motion.span
+                      layoutId="profile-tab"
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                      className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-slate-200/80"
+                    />
+                  ) : null}
+                  <span className="relative z-10">{item.label}</span>
                   <span
                     className={[
-                      "grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-bold",
+                      "relative z-10 grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-bold",
                       active
                         ? "bg-indigo-600 text-white"
                         : "bg-slate-100 text-slate-500",
