@@ -116,6 +116,18 @@
   .mascot-talking {
     animation: panda-talk-bob 0.42s ease-in-out infinite;
   }
+
+  /* Sweeping placeholder bars used by the hydration skeleton. */
+  .skeleton-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      #e2e8f0 0%,
+      #f1f5f9 50%,
+      #e2e8f0 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-sweep 1.6s linear infinite;
+  }
 }
 
 @keyframes mascot-natural-float {
@@ -144,9 +156,19 @@
   }
 }
 
+@keyframes skeleton-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mascot-alive,
-  .mascot-talking {
+  .mascot-talking,
+  .skeleton-shimmer {
     animation: none;
   }
 }

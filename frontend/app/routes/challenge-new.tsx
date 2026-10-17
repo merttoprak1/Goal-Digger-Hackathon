@@ -330,11 +330,13 @@ export default function ChallengeNew() {
   const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
   const [step, setStep] = useState(-1);
+  const [promptFlash, setPromptFlash] = useState(false);
 
   const nextId = useRef(GREETING.length + 1);
   const timers = useRef<number[]>([]);
   const feedRef = useRef<HTMLElement>(null);
   const stickToBottom = useRef(true);
+  const promptInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const pending = timers.current;
@@ -362,6 +364,16 @@ export default function ChallengeNew() {
     return new Promise<void>((resolve) => {
       timers.current.push(window.setTimeout(resolve, ms));
     });
+  }
+
+  /** A quick prompt types for you, so the field flashes to show what landed. */
+  function applyPrompt(text: string) {
+    setInput(text);
+    promptInputRef.current?.focus();
+    setPromptFlash(true);
+    timers.current.push(
+      window.setTimeout(() => setPromptFlash(false), 650),
+    );
   }
 
   function send(raw: string) {
@@ -538,7 +550,7 @@ export default function ChallengeNew() {
                 <button
                   key={prompt.label}
                   type="button"
-                  onClick={() => setInput(prompt.text)}
+                  onClick={() => applyPrompt(prompt.text)}
                   className="cursor-pointer rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
                 >
                   {prompt.label}
@@ -546,9 +558,17 @@ export default function ChallengeNew() {
               ))}
             </div>
 
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 transition focus-within:border-indigo-500 focus-within:bg-white">
+            <div
+              className={[
+                "flex items-center gap-2 rounded-2xl border p-2 transition-colors duration-500 focus-within:border-indigo-500 focus-within:bg-white",
+                promptFlash
+                  ? "border-indigo-400 bg-indigo-50"
+                  : "border-slate-200 bg-slate-50",
+              ].join(" ")}
+            >
               <Icon name="notes" className="text-[18px] text-slate-400" />
               <input
+                ref={promptInputRef}
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
@@ -616,17 +636,32 @@ export default function ChallengeNew() {
               {VISIBILITY.map((option) => {
                 const selected = visibility === option.id;
                 return (
-                  <button
+                  <motion.button
                     key={option.id}
                     type="button"
+                    whileTap={{ scale: 0.985 }}
                     onClick={() => setVisibility(option.id)}
                     className={[
-                      "flex cursor-pointer flex-col gap-2 rounded-2xl border p-4 text-left transition",
+                      "relative flex cursor-pointer flex-col gap-2 rounded-2xl border p-4 text-left transition",
                       selected
                         ? "border-indigo-400 bg-indigo-50/70 ring-1 ring-indigo-200"
                         : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
                     ].join(" ")}
                   >
+                    {selected ? (
+                      <motion.span
+                        initial={{ scale: 0.4, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 520,
+                          damping: 26,
+                        }}
+                        className="absolute -top-2 -right-2 grid h-5 w-5 place-items-center rounded-full bg-indigo-600 text-white shadow-sm"
+                      >
+                        <Icon name="check" className="text-[13px]" />
+                      </motion.span>
+                    ) : null}
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-2">
                         <span
@@ -654,7 +689,7 @@ export default function ChallengeNew() {
                     <span className="text-[11px] font-semibold text-indigo-600">
                       {option.perk}
                     </span>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -718,7 +753,16 @@ export default function ChallengeNew() {
                         ].join(" ")}
                       >
                         {selected ? (
-                          <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                          <motion.span
+                            initial={{ scale: 0.3, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 600,
+                              damping: 24,
+                            }}
+                            className="h-1.5 w-1.5 rounded-full bg-white"
+                          />
                         ) : null}
                       </span>
                       <span className="min-w-0 flex-1">

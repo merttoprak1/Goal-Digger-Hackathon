@@ -61,9 +61,42 @@ export function Layout({ children }: { children: React.ReactNode }) {
 /** Rendered at build time into `index.html` and shown while the SPA boots. */
 export function HydrateFallback() {
   return (
-    <div className="grid min-h-screen place-items-center bg-slate-50">
-      <span className="loading loading-spinner loading-lg text-indigo-600" />
+    <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 bg-slate-50 px-4 py-8 lg:px-8">
       <span className="sr-only">Loading Goal Digger…</span>
+
+      {/* Blocking out the header and the card grid reads as faster than a lone
+          spinner, because the page that replaces it has the same shape. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="skeleton-shimmer h-9 w-36 rounded-2xl" />
+        <span className="skeleton-shimmer h-9 w-64 rounded-full" />
+        <span className="skeleton-shimmer h-9 w-32 rounded-full" />
+      </div>
+
+      <span className="skeleton-shimmer h-10 w-72 self-center rounded-full" />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {[0, 1, 2].map((index) => (
+          <span
+            key={index}
+            className="skeleton-shimmer h-28 rounded-2xl"
+            style={{ animationDelay: `${index * 140}ms` }}
+          />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {[0, 1, 2, 3].map((index) => (
+          <span
+            key={index}
+            className="skeleton-shimmer h-44 rounded-2xl"
+            style={{ animationDelay: `${index * 140}ms` }}
+          />
+        ))}
+      </div>
+
+      <p className="text-center text-xs font-semibold text-slate-400">
+        Syncing with the Mutinynet indexer…
+      </p>
     </div>
   );
 }

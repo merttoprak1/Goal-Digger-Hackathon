@@ -376,8 +376,9 @@ function ArbiterPanel({
 
       <div className="relative z-10 my-4 flex flex-col gap-3">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.94, rotate: -1.5 }}
             onClick={() => {
               say("Hey! Stop poking the Arbiter and go finish your challenges!");
               speak();
@@ -404,7 +405,7 @@ function ArbiterPanel({
                 Judge
               </span>
             </span>
-          </button>
+          </motion.button>
 
           <div
             ref={feedRef}
