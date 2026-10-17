@@ -45,11 +45,11 @@ export const ARBITER: ArbiterProfile = {
   greeting: [
     "Yo! Ready to put your USDT where your mouth is? Name your challenge and stake, or pick a preset below. No slackers allowed on Mutinynet!",
     "Hey! Stop poking the Arbiter and go finish your challenges!",
-    "Microphone & Oracle feed calibrated. All systems active!",
+    "Microphone & proof feed calibrated. All systems active!",
   ],
   replyQuotes: [
     "Contract terms noted! Locking your timelock on Mutinynet. Don't disappoint the arbiter!",
-    "I will be personally validating the oracle feed. If you fail, the counterparty takes the pool!",
+    "I will be personally validating the proof feed. If you fail, the counterparty takes the pool!",
     "DLC terms registered on Bitcoin testnet. You've got the guts, now bring the proof!",
     "Stake accepted. The blockchain never lies, and neither do I. Get to work!",
     "Target locked in my crosshairs. Submit your cryptographic proof before the deadline!",
@@ -60,7 +60,7 @@ export const ARBITER: ArbiterProfile = {
 export const ARBITER_POKE_LINE =
   "Hey! Stop poking the Arbiter and go finish your challenges!";
 export const ARBITER_CALIBRATION_LINE =
-  "Microphone & Oracle feed calibrated. All systems active!";
+  "Microphone & proof feed calibrated. All systems active!";
 
 const TEMPLATE_LABELS: Record<
   ChallengeTemplate,
@@ -252,7 +252,7 @@ const PROFILE_STAKES: ProfileStake[] = [
       boxed: false,
     },
     progress: { label: "6.8 / 10.0 km", percent: 68 },
-    footer: "Oracle: Strava v3 / DLC #8942-B",
+    footer: "Proof: Strava v3 / DLC #8942-B",
     actions: [
       { label: "View DLC Contract", tone: "ghost" },
       { label: "Sync Proof", tone: "primary", icon: "sync" },
@@ -270,13 +270,13 @@ const PROFILE_STAKES: ProfileStake[] = [
     poolUsdt: "30.00",
     note: {
       icon: "code",
-      text: "LeetCode #123, #42, #84 Submitted via Github Oracle",
+      text: "LeetCode #123, #42, #84 Submitted via the GitHub mirror",
       trailing: "3/3 Tests Passed",
       boxed: true,
     },
     footer: "DLC Multi-Sig: 2 of 3 (Goaly + Challenger)",
     actions: [
-      { label: "Inspect Oracle Log", tone: "ghost" },
+      { label: "Inspect Arbiter Log", tone: "ghost" },
       { label: "Share Bet", tone: "cyan", icon: "share" },
     ],
   },
@@ -292,7 +292,7 @@ const PROFILE_STAKES: ProfileStake[] = [
     poolUsdt: "20.00",
     note: {
       icon: "schedule",
-      text: "Proof Oracle: SleepCycle Biometric + Mutinynet Taproot Witness",
+      text: "Proof Source: SleepCycle Biometric + Mutinynet Taproot Witness",
       trailing: "4 Challengers in pool",
       boxed: false,
     },
@@ -320,7 +320,7 @@ const PROFILE_ARBITER: ProfileArbiter = {
   rows: [
     { label: "Auto-settlement rate", value: "100% On-Chain DLC", tone: "emerald" },
     { label: "Dispute Rate", value: "0.00%", tone: "slate" },
-    { label: "Fastest Oracle Verify", value: "1.4s (Lightning)", tone: "emerald" },
+    { label: "Fastest Attestation", value: "1.4s (Lightning)", tone: "emerald" },
   ],
   logLabel: "View Arbiter Audit Log",
 };
@@ -511,14 +511,14 @@ const PAYOUT = {
       id: "p-leetcode",
       title: "Solve 3 LeetCode Hard",
       amountUsdt: "12.50",
-      proof: "Oracle read three accepted submissions from the GitHub mirror",
+      proof: "Goaly read three accepted submissions from the GitHub mirror",
       timing: "Settled 2 hours ago",
     },
     {
       id: "p-sugar",
       title: "Zero sugar for 3 days",
       amountUsdt: "10.70",
-      proof: "Oracle cleared every photo in the food log",
+      proof: "Goaly cleared every photo in the food log",
       timing: "Settled yesterday",
     },
   ] as PayoutPool[],
@@ -527,14 +527,14 @@ const PAYOUT = {
       id: "p-run",
       title: "Run 10 km before 09:00",
       amountUsdt: "7.50",
-      proof: "Oracle verified the Strava GPS track",
+      proof: "Goaly verified the Strava GPS track",
       timing: "Epoch closes in 3 hours",
     },
     {
       id: "p-wake",
       title: "Wake up at 06:30 AM",
       amountUsdt: "5.00",
-      proof: "Oracle verified the SleepCycle export",
+      proof: "Goaly verified the SleepCycle export",
       timing: "Epoch closes in 6 hours",
     },
   ] as PayoutPool[],

@@ -94,7 +94,7 @@ the right (`lg:col-span-7`):
 - **Failure forfeit:** donate to a verified charity, burn the stake
   (`OP_RETURN`), or roll over to the next weekly goal vault.
 - **Step 2 — stake vault & proof parameters:** stake amount with `1/5/10/25/MAX`
-  shortcuts, the challenge horizon, and the proof oracle row.
+  shortcuts, the challenge horizon, and the proof source row.
 
 A summary card totals the stake, XP and default outcome, then **Save Draft** or
 **Lock Stake & Deploy DLC** posts to the API and returns to the arena.
@@ -124,8 +124,8 @@ can never disagree.
 ### `/payout` — settled pools
 
 A dark hero shows the claimable total next to lifetime winnings and what is still
-waiting on the oracle, with a shortcut that claims the next settlement outright.
-Three tabs (Claimable / Awaiting Oracle / History) filter the list.
+waiting on the arbiter, with a shortcut that claims the next settlement outright.
+Three tabs (Claimable / Awaiting Arbiter / History) filter the list.
 
 **Claim** posts to the API and moves the settlement into the wallet: the pool
 leaves the queue, the claimable total counts down, a receipt appears with a link
@@ -169,7 +169,7 @@ app/
     challenge-new.tsx     Create custom challenge (chat-driven builder)
     profile.tsx           User profile, stakes, arbiter and wallet
     wallet.tsx            Balance, escrow breakdown and activity ledger
-    payout.tsx            Claimable settlements, oracle queue and history
+    payout.tsx            Claimable settlements, arbiter queue and history
     proofs.tsx            My Proofs (placeholder)
     ledger.tsx            Pool Ledger (placeholder)
 public/

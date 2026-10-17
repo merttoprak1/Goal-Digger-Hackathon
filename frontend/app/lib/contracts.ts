@@ -228,12 +228,12 @@ export interface WalletSnapshot {
 
 /* --------------------------------- payout -------------------------------- */
 
-/** One pool, either ready to claim or still waiting on the oracle. */
+/** One pool, either ready to claim or still waiting on the arbiter. */
 export interface PayoutPool {
   id: string;
   title: string;
   amountUsdt: string;
-  /** Which oracle evidence settled it. */
+  /** Which proof settled it. */
   proof: string;
   /** Short timing line, e.g. `Settled 2 hours ago`. */
   timing: string;

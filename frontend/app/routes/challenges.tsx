@@ -451,7 +451,7 @@ function ArbiterPanel({
                 : "text-[11px] font-semibold text-indigo-600"
             }
           >
-            {flash ? "Prefilled from card" : "Oracle settlement"}
+            {flash ? "Prefilled from card" : "Arbiter settlement"}
           </motion.span>
         </div>
 

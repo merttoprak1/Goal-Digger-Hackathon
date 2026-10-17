@@ -343,7 +343,7 @@ export default function Payout({ loaderData }: Route.ComponentProps) {
 
   const tabs: { id: TabID; label: string; count: number }[] = [
     { id: "claimable", label: "Claimable", count: snapshot.claimable.length },
-    { id: "pending", label: "Awaiting Oracle", count: snapshot.pending.length },
+    { id: "pending", label: "Awaiting Arbiter", count: snapshot.pending.length },
     { id: "history", label: "History", count: snapshot.history.length },
   ];
 

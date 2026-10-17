@@ -18,7 +18,7 @@ export function meta({}: Route.MetaArgs) {
 /** Placeholder for the signed-in user until auth exists. */
 const CREATOR = "Mert Toprak";
 const WALLET_USDT = 82.5;
-const ORACLE_LABEL = "Apple Health + Camera Feed";
+const PROOF_SOURCE = "Apple Health + Camera Feed";
 const HORIZON_OPTIONS = [3, 5, 7, 14];
 
 const VISIBILITY = [
@@ -81,9 +81,9 @@ const QUICK_PROMPTS = [
 const QUICK_STAKES = ["1", "5", "10", "25"];
 
 const GOALY_REPLIES = [
-  "Locked in. I've mapped your milestone to the Apple Health oracle and set the daily quota. Adjust the horizon on the right if you need more room.",
+  "Locked in. I've mapped your milestone to the Apple Health feed and set the daily quota. Adjust the horizon on the right if you need more room.",
   "Solid target. The proof feed is connected and the escrow terms are drafted — deploy whenever you're ready to put USDT behind it.",
-  "Noted, challenger. I'll attest the oracle feed and rule on the outcome myself. No excuses, no manual disputes.",
+  "Noted, challenger. I'll attest the proof feed and rule on the outcome myself. No excuses, no manual disputes.",
 ];
 
 const GREETING: ChatMessage[] = [
@@ -102,8 +102,8 @@ const GREETING: ChatMessage[] = [
   {
     id: 3,
     from: "goaly",
-    text: "Awesome challenge! 🔥 I've auto-configured the oracle listeners for Apple Health & Camera Validator.",
-    oracle: "5 consecutive days • 100 reps quota",
+    text: "Awesome challenge! 🔥 I've auto-configured the proof listeners for Apple Health & Camera Validator.",
+    proof: "5 consecutive days • 100 reps quota",
   },
 ];
 
@@ -112,7 +112,7 @@ type ChatMessage = {
   from: "goaly" | "user";
   text: string;
   detail?: string;
-  oracle?: string;
+  proof?: string;
 };
 
 type VisibilityId = "public" | "solo";
@@ -126,10 +126,10 @@ type ForfeitId = "donate" | "burn" | "rollover";
  * action instead of a spinner that suddenly changes the page.
  */
 const DEPLOY_STEPS = [
-  "Signing DLC attestation with the Goaly oracle key",
+  "Signing DLC attestation with the Goaly arbiter key",
   "Broadcasting the funding transaction to Mutinynet",
   "Locking your stake in Taproot escrow",
-  "DLC locked — waiting for the first oracle tick",
+  "DLC locked — waiting for the first attestation",
 ];
 
 /** Block height the deploy readout counts up from, one per stage. */
@@ -170,7 +170,7 @@ function GoalyHeader() {
           </span>
         </div>
         <p className="text-xs font-medium text-slate-500">
-          Discreet Log Oracle • Referee
+          Discreet Log Contract • Referee
         </p>
       </div>
     </div>
@@ -188,7 +188,7 @@ function GoalyBubble({ message }: { message: ChatMessage }) {
           {message.detail}
         </p>
       ) : null}
-      {message.oracle ? (
+      {message.proof ? (
         <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-emerald-200/70 bg-white px-3 py-2">
           <Icon
             name="verified_user"
@@ -197,10 +197,10 @@ function GoalyBubble({ message }: { message: ChatMessage }) {
           />
           <div>
             <p className="text-[11px] font-bold text-slate-700">
-              Oracle Verified
+              Arbiter Verified
             </p>
             <p className="text-[10px] font-medium text-slate-500">
-              {message.oracle}
+              {message.proof}
             </p>
           </div>
         </div>
@@ -399,7 +399,7 @@ export default function ChallengeNew() {
           text: GOALY_REPLIES[
             Math.floor(Math.random() * GOALY_REPLIES.length)
           ],
-          oracle: `${horizonDays} consecutive days • auto-attested daily`,
+          proof: `${horizonDays} consecutive days • auto-attested daily`,
         },
       ]);
     }, 600);
@@ -453,7 +453,7 @@ export default function ChallengeNew() {
         creator: CREATOR,
         title,
         stakeUsdt: amount,
-        proofSource: ORACLE_LABEL,
+        proofSource: PROOF_SOURCE,
         proofDeadline: isoWithOffset(deadline),
       });
       navigate("/challenges");
@@ -487,7 +487,7 @@ export default function ChallengeNew() {
 
         <span className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-          ORACLE SYNCED: MUTINYNET BLOCK #849,203
+          ARBITER SYNCED: MUTINYNET BLOCK #849,203
           <span className="text-emerald-300">•</span>
           DLC v0.4 Active
         </span>
@@ -608,7 +608,7 @@ export default function ChallengeNew() {
                 Zero Counterparty Risk
               </p>
               <p className="text-[11px] text-emerald-700">
-                DLC oracles can only sign outcomes, never touch staked funds
+                The arbiter can only sign outcomes, never touch staked funds
               </p>
             </div>
           </div>
@@ -721,7 +721,7 @@ export default function ChallengeNew() {
               </p>
               <p className="mt-1 text-xs leading-relaxed text-slate-500">
                 In solo mode, your stake doesn&apos;t disappear into a black box.
-                If the oracle confirms uncompleted targets, the Discreet Log
+                If the arbiter confirms uncompleted targets, the Discreet Log
                 Contract routes your deposit directly to a public cause.
               </p>
             </div>
@@ -900,7 +900,7 @@ export default function ChallengeNew() {
 
                 <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-slate-400">
                   <span>Start: Immediately upon signature</span>
-                  <span>Oracle Tick: Daily 24h</span>
+                  <span>Review Cycle: Daily 24h</span>
                 </div>
               </div>
             </div>
@@ -912,7 +912,7 @@ export default function ChallengeNew() {
                 </span>
                 <div>
                   <p className="text-xs font-bold text-slate-800">
-                    Proof Oracle: {ORACLE_LABEL}
+                    Proof Source: {PROOF_SOURCE}
                   </p>
                   <p className="font-mono text-[10px] text-slate-400">
                     Attestation signed via Goaly Schnorr public key: pubkey:82b64f
@@ -928,7 +928,7 @@ export default function ChallengeNew() {
                   type="button"
                   className="flex cursor-pointer items-center gap-1 text-[11px] font-bold text-indigo-600 transition hover:text-indigo-800"
                 >
-                  View Oracle Spec
+                  View Arbiter Spec
                   <Icon name="open_in_new" className="text-[14px]" />
                 </button>
               </div>
@@ -1095,7 +1095,7 @@ export default function ChallengeNew() {
             </div>
 
             <p className="mt-3 text-center text-[11px] font-medium text-slate-400">
-              By locking funds you authorize Goaly AI Oracle to attest state
+              By locking funds you authorize Goaly AI Arbiter to attest state
               transitions based on verified health data.
             </p>
           </section>

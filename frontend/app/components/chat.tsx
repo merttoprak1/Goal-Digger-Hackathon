@@ -101,7 +101,7 @@ export function StatusLabel({
         transition={{ duration: 0.18, ease: EASE }}
         className={working ? "font-semibold text-indigo-600" : undefined}
       >
-        {working ? "Goaly is computing DLC oracle parameters..." : idleText}
+        {working ? "Goaly is computing DLC parameters..." : idleText}
       </motion.span>
     </AnimatePresence>
   );
