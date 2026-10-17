@@ -25,6 +25,10 @@ export function openSessions(databasePath: string, now: () => number = () => Dat
   return {
     ...mathProofs(db, now),
     ...outcomes(db, now),
+    checkReady() {
+      db.prepare("SELECT 1").get();
+      return true;
+    },
     create(displayName: string) {
       const participant: Participant = {
         id: randomUUID(),

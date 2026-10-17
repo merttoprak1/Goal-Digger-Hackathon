@@ -23,6 +23,10 @@ async function fixture(t, issueInvoice, readDeposit, decodeInvoice) {
   const url = `http://127.0.0.1:${app.server.address().port}/vault/deposits`;
   return {
     app,
+    health: (token = "test-secret") =>
+      fetch(url.replace("/vault/deposits", "/health"), {
+        headers: { authorization: `Bearer ${token}` },
+      }),
     validate: (body, token = "test-secret") =>
       fetch(url.replace("/deposits", "/payouts/validate"), {
         method: "POST",
@@ -39,6 +43,19 @@ async function fixture(t, issueInvoice, readDeposit, decodeInvoice) {
       }),
   };
 }
+
+test("the private vault health endpoint requires authentication and checks its database", async (t) => {
+  const { health } = await fixture(
+    t,
+    async () => { throw new Error("No wallet call expected."); },
+    undefined,
+    undefined,
+  );
+  assert.equal((await health("wrong")).status, 401);
+  const response = await health();
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { status: "ok" });
+});
 const input = { paymentId: "stake-1", amountAtomic: "1000000" };
 const invoice = {
   invoice: "rgb:test",

@@ -1,6 +1,8 @@
 import { Router } from "express";
-import { healthRouter } from "./health.js";
+import { createHealthRouter, type ReadinessChecks } from "./health.js";
 
-export const routes = Router();
-
-routes.use("/health", healthRouter);
+export function createRoutes(checks: ReadinessChecks) {
+  const routes = Router();
+  routes.use("/health", createHealthRouter(checks));
+  return routes;
+}

@@ -266,6 +266,15 @@ export function createVaultServer({
       const expected = Buffer.from(`Bearer ${token}`);
       if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected))
         throw error(401, "A valid vault token is required.");
+      if (req.url?.split("?")[0] === "/health") {
+        if (req.method !== "GET") {
+          res.setHeader("Allow", "GET");
+          throw error(405, "Use GET for this endpoint.");
+        }
+        db.prepare("SELECT 1").get();
+        reply(200, { status: "ok" });
+        return;
+      }
       const payoutStatusMatch = /^\/vault\/payouts\/([a-zA-Z0-9_-]{1,80})\/status$/.exec(
         req.url || "",
       );

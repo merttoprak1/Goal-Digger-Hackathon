@@ -94,6 +94,28 @@ test("pending, incorrect, and unavailable vault results never credit a stake", a
   assert.equal(store.listCredits("challenge-1").length, 0);
 });
 
+test("vault health uses the private token and fails closed on unavailable or invalid responses", async (t) => {
+  let status = 200;
+  let body = { status: "ok" };
+  let authorization;
+  const store = openStakeDeposits({
+    databasePath: setup(t),
+    token: "private-token",
+    fetchService: async (_url, options) => {
+      authorization = options.headers.Authorization;
+      return Response.json(body, { status });
+    },
+  });
+  t.after(() => store.close());
+  assert.equal(await store.health(), true);
+  assert.equal(authorization, "Bearer private-token");
+  body = { status: "unexpected" };
+  assert.equal(await store.health(), false);
+  body = { status: "ok" };
+  status = 503;
+  assert.equal(await store.health(), false);
+});
+
 test("the same transfer receipt cannot credit a second payment ID", async (t) => {
   let id = "stake-1";
   const fetchService = async (url, options) =>

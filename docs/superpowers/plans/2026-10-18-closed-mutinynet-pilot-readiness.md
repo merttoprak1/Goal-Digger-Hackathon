@@ -75,6 +75,7 @@
 - Modify: `vault/vault.mjs`
 - Modify: `vault/stake-deposits.mjs`
 - Test: `api/tests/readiness.test.ts`
+- Test: `tests/stake-deposits.test.mjs`
 - Test: `tests/vault.test.mjs` (or the existing vault HTTP test file)
 
 **Interfaces:**
