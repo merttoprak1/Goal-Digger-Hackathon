@@ -30,6 +30,7 @@ Open http://localhost:5173.
 | `npm run build`     | Production build into `build/client`              |
 | `npm run start`     | Serve the built SPA on port 4173 (`vite preview`) |
 | `npm run typecheck` | Generate route types, then run `tsc --noEmit`     |
+| `npm test`          | Run frontend client and wallet tests               |
 
 ## SPA mode (important)
 
@@ -49,8 +50,9 @@ See [SPA Mode](https://reactrouter.com/how-to/spa) for details.
 
 ## Design
 
-The UI follows the approved **“Goal Digger”** board from the design handoff and
-covers three screens.
+The UI follows the approved **“Goal Digger”** design across the challenge board,
+challenge detail, create flow, profile, wallet, and payouts. Proofs and Ledger
+remain placeholder routes.
 
 Shared visual language:
 
@@ -71,9 +73,10 @@ Centered hero, filter row, a 12-column grid with the challenge cards on the left
 (`col-span-7`) and the Goaly arbiter panel on the right (`col-span-5`), then the
 dark call-to-action strip.
 
-The arbiter panel is interactive: the mascot reacts when clicked, the preset
-chips and the card action buttons pre-fill the proposal form, and proposing a
-contract appends your message and a simulated arbiter reply.
+The arbiter panel sends the latest proposal to local QVAC and displays its
+reply. Presets fill the proposal form. Proposals in this panel are not saved as
+challenges and do not request a wallet payment; use the Create Challenge flow
+to save and fund a challenge.
 
 ### `/challenges/new` — create custom challenge
 
@@ -115,11 +118,14 @@ app/
     icon.tsx              Material Symbols `Icon` wrapper
     coming-soon.tsx       Placeholder for screens still to be designed
   lib/
-    contracts.ts          API types + zod schema for the create form
-    api.ts                API client (mock-aware, throws typed ApiError)
-    mock-store.ts         In-memory fake backend with seed data
+    board.ts              Live challenge API client and draft validation
+    wallet.ts             KaleidoSwap invoice approval and recovery safeguards
+    payment-confirmation.ts Polls the API before publishing or joining
+    goaly.ts              Local Goaly chat client
+    payouts.ts            Participant access key and payout client
+    pilot-access.ts       Server-only Basic Auth gate for the closed pilot
     challenge-view.ts     Shared status/pool colour maps for challenge cards
-    tones.ts              Shared accent maps for tiles, badges, notes and actions
+    contracts.ts          Shared challenge and profile display types
   routes/
     home.tsx              Redirects to /challenges (the design has no landing page)
     challenges.tsx        The challenge board + Goaly arbiter panel
@@ -141,34 +147,22 @@ still exist but are not linked, since their boards are not built yet.
 
 ## Talking to the API
 
-`app/lib/api.ts` is the only place that talks to the backend. It exposes
-`fetchHealth`, `fetchChallengesSnapshot`, `fetchChallenges`, `fetchChallenge`,
-`fetchProfileSnapshot`, and `createChallenge`.
+`app/lib/board.ts` calls the live Express API through `VITE_API_BASE_URL`, which
+defaults to `/api`. The Vite development proxy sends `/api` to the API on port
+4002. It sends `/qvac` to the Goaly service on port 4000. For the closed pilot,
+set `API_TARGET=http://127.0.0.1:4002` and
+`QVAC_API_TARGET=http://127.0.0.1:4000` when starting Vite.
 
-**Right now it runs against in-memory mocks** (`app/lib/mock-store.ts`), so the
-UI works before the Express API exists. Reset the seed data from the browser
-console with `__resetGoalDiggerMocks()`.
+The mock toggle described in older handoff notes is no longer used. Challenge,
+stake, proof, outcome, and payout behavior goes through the API and local vault.
+See [the closed Mutinynet pilot runbook](../docs/CLOSED-MUTINYNET-PILOT.md) for
+service startup, readiness, two-wallet verification, and recovery steps.
 
-To switch to the real server:
-
-```bash
-cp .env.example .env
-# set VITE_USE_MOCKS=false
-npm run dev
-```
-
-| Variable            | Default                 | Meaning                                    |
-| ------------------- | ----------------------- | ------------------------------------------ |
-| `VITE_USE_MOCKS`    | `true`                  | `false` sends real HTTP requests           |
-| `VITE_API_BASE_URL` | `/api`                  | Base path for API requests                 |
-| `API_TARGET`        | `http://127.0.0.1:4000` | Dev proxy target for `/api` (used by Vite) |
-
-The dev proxy expects the Express API on port 4000, leaving port 3001 for the
-RGB node.
-
-> `contracts.ts` mirrors the shape the backend team agreed on for the fields the
-> board renders (status, stake, pool, proof source, action). Server-owned extras
-> can be added alongside them without touching the UI.
+For a closed pilot, create `.env` from `.env.example` and set server-only
+`PILOT_MODE=true` plus a private `PILOT_ACCESS_PASSWORD`. These names must not
+start with `VITE_`. Vite challenges every request with Basic Auth as user
+`pilot`. This gate protects the development server only; production builds
+require access control at the hosting layer and reject `PILOT_MODE=true`.
 
 ## Theming
 
@@ -196,13 +190,15 @@ defaults, which is why the markup reads like the design handoff.
 `.mascot-talking` mascot animations (both disabled under
 `prefers-reduced-motion`).
 
-## Not built yet
+## Pilot limits
 
-- My Proofs / evidence submission and verdict display
-- Pool Ledger
-- Real counter-stake and settlement wiring (the arbiter panel and the proposal
-  and create forms are UI-only today)
-- Persistence — mocks live in memory, so a reload resets everything
+- `/proofs` and `/ledger` are design placeholders. Proof submission and outcome
+  actions currently live on challenge detail pages.
+- Current proof flows are timed math and custom written evidence. A custom proof
+  source is descriptive text; the app does not browse or authenticate third-party
+  websites, screenshots, or activity services.
+- The pilot uses Mutinynet test assets only. It is not mainnet custody or
+  production hosting.
 
 ## Known warnings
 

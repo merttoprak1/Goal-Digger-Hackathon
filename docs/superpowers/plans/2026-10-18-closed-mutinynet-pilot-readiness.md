@@ -1,6 +1,6 @@
 # Closed Mutinynet Pilot Readiness Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make the current tunneled Mutinynet pilot safer to operate by restricting access, protecting proof submissions during Goaly outages, exposing truthful readiness, and documenting repeatable launch and recovery checks.
 
@@ -41,11 +41,11 @@
 - Produces `pilotAccessConfig(env)` and `createPilotAccessMiddleware(config)`; Vite installs the middleware for dev-server requests when `PILOT_MODE=true`.
 - `PILOT_MODE=true` requires a non-empty `PILOT_ACCESS_PASSWORD`; the password is checked server-side with constant-time byte comparison. Disabled local development remains unchanged.
 
-- [ ] **Step 1: Write failing tests** for required password validation and middleware behavior: missing password rejected, unauthorized request returns 401 with a Basic challenge, valid `pilot:<password>` continues, disabled mode continues.
-- [ ] **Step 2: Run** `node --experimental-strip-types --test tests/pilot-access.test.ts` from `frontend/`; confirm the new exports are missing.
-- [ ] **Step 3: Implement** the config and middleware, install it in Vite’s dev server, and document the two pilot environment variables without a default password.
-- [ ] **Step 4: Run** the focused test, then `npm test`, `npm run typecheck`, and `npm run build` from `frontend/`.
-- [ ] **Step 5: Commit** `feat: gate the closed pilot web server`.
+- [x] **Step 1: Write failing tests** for required password validation and middleware behavior: missing password rejected, unauthorized request returns 401 with a Basic challenge, valid `pilot:<password>` continues, disabled mode continues.
+- [x] **Step 2: Run** `node --experimental-strip-types --test tests/pilot-access.test.ts` from `frontend/`; confirm the new exports are missing.
+- [x] **Step 3: Implement** the config and middleware, install it in Vite’s dev server, and document the two pilot environment variables without a default password.
+- [x] **Step 4: Run** the focused test, then `npm test`, `npm run typecheck`, and `npm run build` from `frontend/`.
+- [x] **Step 5: Commit** `feat: gate the closed pilot web server`.
 
 ### Task 2: Preserve timely proof while Goaly is unavailable
 
@@ -59,11 +59,11 @@
 - Existing accepted custom proof is terminal and cannot be overwritten. One pending review per challenge is durable; only the exact same evidence can retry it. New evidence still requires an open proof window. One in-process Goaly review runs per challenge at a time.
 - `finalizeOutcome` returns HTTP 409 `PROOF_REVIEW_PENDING` while a timely custom proof is unresolved. Successful accepted/rejected/unclear reviews resolve the pending row; only accepted proof is success-eligible.
 
-- [ ] **Step 1: Write failing API tests** for QVAC failure leaving a pending record, finalization being blocked during pending review, same-evidence retry resolving it after restart, changed evidence being blocked while pending, accepted proof not being overwritten, and duplicate concurrent reviews being rejected.
-- [ ] **Step 2: Run** `npm test -- --run tests/outcomes.test.ts` from `api/`; confirm the outage/finalization tests fail against the current store.
-- [ ] **Step 3: Implement** durable pending-review state and exact-evidence retry; use the original submission timestamp for deadline eligibility and retain an accepted proof as terminal.
-- [ ] **Step 4: Run** the focused tests, then `npm test`, `npm run typecheck`, and `npm run lint` from `api/`.
-- [ ] **Step 5: Commit** `fix: hold outcomes for pending proof review`.
+- [x] **Step 1: Write failing API tests** for QVAC failure leaving a pending record, finalization being blocked during pending review, same-evidence retry resolving it after restart, changed evidence being blocked while pending, accepted proof not being overwritten, and duplicate concurrent reviews being rejected.
+- [x] **Step 2: Run** `npm test -- --run tests/outcomes.test.ts` from `api/`; confirm the outage/finalization tests fail against the current store.
+- [x] **Step 3: Implement** durable pending-review state and exact-evidence retry; use the original submission timestamp for deadline eligibility and retain an accepted proof as terminal.
+- [x] **Step 4: Run** the focused tests, then `npm test`, `npm run typecheck`, and `npm run lint` from `api/`.
+- [x] **Step 5: Commit** `fix: hold outcomes for pending proof review`.
 
 ### Task 3: Report live API readiness
 
@@ -83,16 +83,17 @@
 - Readiness returns `{status:"ready", checks:{database:"ok",vault:"ok",qvac:"ok",rgb:"ok"}}` with HTTP 200 only when every check passes; otherwise HTTP 503 with per-check `unavailable` statuses and no secrets.
 - Add authenticated `GET /health` to the vault service and `stakes.health()` to its adapter. Health calls have bounded timeouts.
 
-- [ ] **Step 1: Write failing tests** for healthy readiness, each dependency outage, unchanged liveness during dependency outage, vault health authentication, and no credential leakage in responses.
-- [ ] **Step 2: Run** the focused API/vault tests and confirm the readiness behavior is absent.
-- [ ] **Step 3: Implement** database, vault, and QVAC/RGB checks with bounded timeouts and per-component status.
-- [ ] **Step 4: Run** the focused tests, then API and root suites, API typecheck, and lint.
-- [ ] **Step 5: Commit** `feat: add dependency-aware pilot readiness checks`.
+- [x] **Step 1: Write failing tests** for healthy readiness, each dependency outage, unchanged liveness during dependency outage, vault health authentication, and no credential leakage in responses.
+- [x] **Step 2: Run** the focused API/vault tests and confirm the readiness behavior is absent.
+- [x] **Step 3: Implement** database, vault, and QVAC/RGB checks with bounded timeouts and per-component status.
+- [x] **Step 4: Run** the focused tests, then API and root suites, API typecheck, and lint.
+- [x] **Step 5: Commit** `feat: add dependency-aware pilot readiness checks`.
 
 ### Task 4: Publish the closed-pilot operating checklist
 
 **Files:**
 - Create: `docs/CLOSED-MUTINYNET-PILOT.md`
+- Modify: `docs/HANDOFF.md`
 - Modify: `docs/HANDOFF-RUN.md`
 - Modify: `docs/HANDOFF-DEMO.md`
 - Modify: `frontend/README.md`
@@ -102,6 +103,6 @@
 - Include SQLite `.backup` examples for both `api/data/api.sqlite` and `wdk/data/vault.sqlite`, plus restore steps that stop services first and verify readiness before use.
 - Correct obsolete claims that Goaly does not review proofs, the app uses mock data, or publication is automatic without a confirmed payment.
 
-- [ ] **Step 1: Update** the run and demo docs from the current code behavior and include explicit go/no-go checks for a closed pilot.
-- [ ] **Step 2: Verify** every command and endpoint against the checked-in scripts/configuration; run `git diff --check` and review all changed documentation.
-- [ ] **Step 3: Commit** `docs: add closed Mutinynet pilot runbook`.
+- [x] **Step 1: Update** the run and demo docs from the current code behavior and include explicit go/no-go checks for a closed pilot.
+- [x] **Step 2: Verify** every command and endpoint against the checked-in scripts/configuration; run `git diff --check` and review all changed documentation.
+- [x] **Step 3: Commit** `docs: add closed Mutinynet pilot runbook`.
