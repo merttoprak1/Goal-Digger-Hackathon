@@ -1,5 +1,6 @@
 import type {DatabaseSync} from 'node:sqlite';
 import {bettingBook,fundingReview,type BettingSnapshot} from './betting.js';
+import {awardClaims} from './award-claims.js';
 import {ApiError} from '../middlewares/error-handler.js';
 
 export function allocatePool(snapshot:BettingSnapshot,status:'success'|'failure'){
@@ -17,7 +18,17 @@ export function payoutPlans(db:DatabaseSync,now:()=>number,book:ReturnType<typeo
   const row=db.prepare('SELECT result FROM payout_plans WHERE challenge_id=?').get(id);
   return row?JSON.parse(String(row.result)):null;
  };
- return {getPayoutPlan,createPayoutPlan(id:string){
+ const checkedPlan=(id:string)=>{
+   const outcome=getOutcome(id);
+   if(!outcome)throw new ApiError(409,'Finalize the challenge before calculating payouts.','OUTCOME_REQUIRED');
+   const snapshot=book.sealInsideTransaction(id);
+   if(snapshot.poolAtomic!==outcome.poolAtomic||JSON.stringify(snapshot.stakes)!==JSON.stringify(outcome.stakes))fundingReview();
+   if(outcome.status!=='success'&&outcome.status!=='failure')throw new ApiError(409,'The outcome is not final.','OUTCOME_REQUIRED');
+   const plan=getPayoutPlan(id);
+   if(!plan)throw new ApiError(409,'Create the payout plan before submitting an invoice.','PLAN_REQUIRED');
+   return plan;
+ };
+ return {getPayoutPlan,...awardClaims(db,now,checkedPlan),createPayoutPlan(id:string){
   db.exec('BEGIN IMMEDIATE');
   try{
    const outcome=getOutcome(id);

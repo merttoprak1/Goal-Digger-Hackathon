@@ -1,3 +1,4 @@
+import {vaultPayouts} from './services/vault-payouts.js';
 import express from "express";
 import {openStakeDeposits,type StakeDeposits} from '../../stake-deposits.mjs';
 import {openSessions} from './store/sessions.js';
@@ -9,7 +10,7 @@ import { ApiError, errorHandler } from "./middlewares/error-handler.js";
 import { requestId } from "./middlewares/request-id.js";
 import { routes } from "./routes/index.js";
 
-export function createApp({databasePath=env.DATABASE_PATH,stakeDeposits}:{databasePath?:string;stakeDeposits?:StakeDeposits}={}) {
+export function createApp({databasePath=env.DATABASE_PATH,stakeDeposits,payoutVault}:{databasePath?:string;stakeDeposits?:StakeDeposits;payoutVault?:ReturnType<typeof vaultPayouts>}={}) {
   const app = express();
 
   const sessionStore=openSessions(databasePath);
@@ -26,7 +27,7 @@ export function createApp({databasePath=env.DATABASE_PATH,stakeDeposits}:{databa
   }
 
   app.use('/api',sessionRoutes(sessionStore));
-  app.use('/api/challenges',challengeRoutes(sessionStore,stakes));
+  app.use('/api/challenges',challengeRoutes(sessionStore,stakes,payoutVault??(env.VAULT_API_TOKEN?vaultPayouts(env.VAULT_API_TOKEN):undefined)));
   app.use('/api',routes);
   app.use(routes);
   app.use((_req,_res,next)=>next(new ApiError(404,'Endpoint not found.','NOT_FOUND')));

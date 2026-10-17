@@ -1,3 +1,4 @@
+import type {vaultPayouts} from '../services/vault-payouts.js';
 import type {StakeDeposits} from '../../../stake-deposits.mjs';
 import {Router} from 'express';
 import {z} from 'zod';
@@ -5,7 +6,7 @@ import type {openSessions} from '../store/sessions.js';
 import {sessionIdentity} from './sessions.js';
 import {challengeDraftSchema} from '../contracts/challenge.js';
 import {ApiError} from '../middlewares/error-handler.js';
-export function challengeRoutes(store:ReturnType<typeof openSessions>,stakes?:StakeDeposits){
+export function challengeRoutes(store:ReturnType<typeof openSessions>,stakes?:StakeDeposits,payoutVault?:ReturnType<typeof vaultPayouts>){
  const router=Router();
  const projection=(challenge:ReturnType<typeof store.getChallenge>)=>{
   const credits=store.listStakeCredits(challenge.id);
@@ -112,6 +113,29 @@ export function challengeRoutes(store:ReturnType<typeof openSessions>,stakes?:St
  router.get('/:id/payout-plan',(req,res)=>{
   if(!store.getPublished(String(req.params.id)))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
   res.json({plan:store.getPayoutPlan(String(req.params.id))});
+ });
+ router.post('/:id/payout-request',async(req,res)=>{
+  const id=String(req.params.id);const participantId=res.locals.participant.id;
+  if(!store.getPublished(id))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  const parsed=z.object({invoice:z.string().startsWith('rgb:').min(5).max(3000)}).strict().safeParse(req.body);
+  if(!parsed.success)throw new ApiError(400,'Send only the RGB receive invoice.','INVALID_INVOICE');
+  const award=store.awardAllocation(id,participantId);
+  let claim=store.getAwardClaim(id,participantId);
+  if(claim&&claim.invoice!==parsed.data.invoice)throw new ApiError(409,'This award already has a different invoice.','AWARD_BOUND');
+  if(claim?.payout){res.json({claim});return;}
+  if(!payoutVault)throw new ApiError(503,'The vault connection is not configured.','VAULT_UNAVAILABLE');
+  if(!claim){
+   const validation=await payoutVault.validate(parsed.data.invoice,award.amountAtomic,award.assetId);
+   claim=store.bindAward(id,participantId,parsed.data.invoice,validation);
+  }
+  const request={payoutId:claim.payoutId,challengeId:id,participantId,amountAtomic:claim.amountAtomic,invoice:claim.invoice};
+  const payout=await payoutVault.prepare(request,claim.validation);
+  res.json({claim:store.completeAward(id,participantId,payout)});
+ });
+ router.get('/:id/payout-request',(req,res)=>{
+  const id=String(req.params.id);
+  if(!store.getPublished(id))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  res.json({claim:store.getAwardClaim(id,res.locals.participant.id)});
  });
  router.post('/:id/publish',(req,res)=>{
   const challenge=store.getChallenge(res.locals.participant.id,String(req.params.id));
