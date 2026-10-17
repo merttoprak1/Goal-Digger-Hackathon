@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BoardError, createBoardClient, customDraft, toBoardChallenge } from "./board.ts";
+import { BoardError, createBoardClient, customDraft, toBoardChallenge } from "../app/lib/board.ts";
 
 const token = "a".repeat(64);
 const live = {

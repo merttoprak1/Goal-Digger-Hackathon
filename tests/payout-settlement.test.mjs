@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createVaultServer } from "./vault.mjs";
+import { createVaultServer } from "../vault/vault.mjs";
 const assetId = "rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0";
 const txid = "d".repeat(64);
 const input = {

@@ -22,6 +22,6 @@ try {
   console.log("QVAC check passed.");
 } catch (error) {
   console.error(error.message);
-  console.error("Start QVAC first: qvac serve --openai --config qvac.config.mjs");
+  console.error("Start QVAC first: qvac serve --openai --config qvac/qvac.config.mjs");
   process.exitCode = 1;
 }

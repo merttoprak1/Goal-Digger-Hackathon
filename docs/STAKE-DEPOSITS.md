@@ -13,7 +13,7 @@ Start the [private vault server](VAULT-API.md) separately on localhost port 4001
 Keep its token on the backend. Use Node.js 24 or later.
 
 ```js
-import { openStakeDeposits } from './stake-deposits.mjs';
+import { openStakeDeposits } from './vault/stake-deposits.mjs';
 
 const deposits = openStakeDeposits({
   databasePath: './data/stakes.sqlite',
@@ -67,7 +67,7 @@ Keep the database and its journal files. Keep the vault and wallet backups separ
 ## Checks
 
 ```bash
-node --test stake-deposits.test.mjs vault.test.mjs assessment.test.mjs rgb-wallet.test.mjs
+node --test tests/stake-deposits.test.mjs tests/vault.test.mjs tests/assessment.test.mjs tests/rgb-wallet.test.mjs
 ```
 
 The tests cover concurrent confirmation, restart recovery, immutable bindings, incorrect deposit fields, service failures, and reused transfer receipts.

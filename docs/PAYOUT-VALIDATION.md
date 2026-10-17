@@ -48,7 +48,7 @@ Ege's backend owns the winner, payout amount, recipient selection, and challenge
 ## Checks
 
 ```bash
-node --test payout-invoice.test.mjs vault.test.mjs stake-deposits.test.mjs assessment.test.mjs rgb-wallet.test.mjs
+node --test tests/payout-invoice.test.mjs tests/vault.test.mjs tests/stake-deposits.test.mjs tests/assessment.test.mjs tests/rgb-wallet.test.mjs
 ```
 
 On October 17, 2026, all 17 tests passed.

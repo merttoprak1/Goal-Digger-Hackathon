@@ -10,7 +10,7 @@ import { validatePayoutInvoice } from "./payout-invoice.mjs";
 const assetId = "rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0";
 const error = (status, message) => Object.assign(new Error(message), { status });
 function issueInvoice(amountAtomic) {
-  const cwd = fileURLToPath(new URL("./wdk/", import.meta.url));
+  const cwd = fileURLToPath(new URL("../wdk/", import.meta.url));
   return new Promise((resolve, reject) =>
     execFile(
       `${cwd}/node_modules/.bin/bare`,
@@ -45,7 +45,7 @@ function issueInvoice(amountAtomic) {
 }
 
 function readDeposit(saved, mode = "deposit-status") {
-  const cwd = fileURLToPath(new URL("./wdk/", import.meta.url));
+  const cwd = fileURLToPath(new URL("../wdk/", import.meta.url));
   return new Promise((resolve, reject) =>
     execFile(
       `${cwd}/node_modules/.bin/bare`,
@@ -142,7 +142,7 @@ export function assessPayout(saved, snapshot) {
 }
 
 function decodeInvoice(invoice) {
-  const cwd = fileURLToPath(new URL("./wdk/", import.meta.url));
+  const cwd = fileURLToPath(new URL("../wdk/", import.meta.url));
   return new Promise((resolve, reject) =>
     execFile(
       `${cwd}/node_modules/.bin/bare`,
@@ -163,7 +163,7 @@ function decodeInvoice(invoice) {
 }
 
 function sendPayout(saved) {
-  const cwd = fileURLToPath(new URL("./wdk/", import.meta.url));
+  const cwd = fileURLToPath(new URL("../wdk/", import.meta.url));
   const directory = `${cwd}data/custom-signet/payouts`;
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   // An existing journal requires reconciliation. Never overwrite it to retry a send.
@@ -553,7 +553,7 @@ export function createVaultServer({
 }
 
 if (import.meta.main) {
-  const databasePath = fileURLToPath(new URL("./wdk/data/vault.sqlite", import.meta.url));
+  const databasePath = fileURLToPath(new URL("../wdk/data/vault.sqlite", import.meta.url));
   const app = createVaultServer({ token: process.env.VAULT_API_TOKEN, databasePath });
   app.server.listen(4001, "127.0.0.1", () =>
     console.log("Private vault endpoint: http://127.0.0.1:4001/vault/deposits"),

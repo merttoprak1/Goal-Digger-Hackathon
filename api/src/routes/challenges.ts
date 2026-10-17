@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { StakeDeposits } from "../../../stake-deposits.mjs";
+import type { StakeDeposits } from "../../../vault/stake-deposits.mjs";
 import { sessionIdentity } from "./sessions.js";
 import type { PayoutVault, SessionStore } from "./challenge/context.js";
 import { registerDraftRoutes } from "./challenge/drafts.js";

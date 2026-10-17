@@ -1,6 +1,6 @@
 import { vaultPayouts } from "./services/vault-payouts.js";
 import express from "express";
-import { openStakeDeposits, type StakeDeposits } from "../../stake-deposits.mjs";
+import { openStakeDeposits, type StakeDeposits } from "../../vault/stake-deposits.mjs";
 import { openSessions } from "./store/sessions.js";
 import { challengeRoutes } from "./routes/challenges.js";
 import { sessionRoutes } from "./routes/sessions.js";

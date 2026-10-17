@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createVaultServer, assessDeposit } from "./vault.mjs";
+import { createVaultServer, assessDeposit } from "../vault/vault.mjs";
 
 async function fixture(t, issueInvoice, readDeposit, decodeInvoice) {
   const dir = mkdtempSync(join(tmpdir(), "vault-test-"));

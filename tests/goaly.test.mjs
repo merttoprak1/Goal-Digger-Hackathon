@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { goalyMessages } from "./goaly.mjs";
-import { askQvac } from "./server.mjs";
+import { goalyMessages } from "../qvac/goaly.mjs";
+import { askQvac } from "../qvac/server.mjs";
 test("Goaly keeps user input separate from its advisory rules", () => {
   const m = goalyMessages("I will run 5 km tomorrow");
   assert.equal(m[0].role, "system");

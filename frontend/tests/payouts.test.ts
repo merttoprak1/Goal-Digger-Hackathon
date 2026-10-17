@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createPayoutClient, payoutSession, PayoutError } from "./payouts.ts";
+import { createPayoutClient, payoutSession, PayoutError } from "../app/lib/payouts.ts";
 const token = "a".repeat(64);
 test("sends only the receive invoice for preparation and an empty body for execution", async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];

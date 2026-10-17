@@ -3,7 +3,7 @@ import WalletManagerRgb from "@utexo/wdk-wallet-rgb";
 import bip39 from "bip39" with { imports: "bare-node-runtime/imports" };
 import fs from "bare-fs";
 import { fileURLToPath } from "bare-url";
-import { executePayoutTransfer } from "../payout-transfer.mjs";
+import { executePayoutTransfer } from "../vault/payout-transfer.mjs";
 
 const dataDir = fileURLToPath(new URL("./data", import.meta.url));
 const walletDataDir = `${dataDir}/custom-signet`;

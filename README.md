@@ -38,7 +38,7 @@ Use the installed QVAC CLI and Node.js 24 or later. The config finds the downloa
 1. Start the local model server from the repository root:
 
 ```bash
-qvac serve --openai --config qvac.config.mjs
+qvac serve --openai --config qvac/qvac.config.mjs
 ```
 
 2. In another terminal, test the model from the same folder:
@@ -93,7 +93,7 @@ Reference: [RGB Lightning Node API](https://github.com/RGB-Tools/rgb-lightning-n
 Start the endpoint in another terminal:
 
 ```bash
-node server.mjs
+node qvac/server.mjs
 ```
 
 Open [the health endpoint](http://127.0.0.1:4000/health). A healthy response looks like this:
@@ -118,7 +118,7 @@ The server uses localhost port 4000 and requires no npm dependencies.
 
 ## Ask local QVAC
 
-With `node server.mjs` running, send a short prompt:
+With `node qvac/server.mjs` running, send a short prompt:
 
 ```bash
 curl http://127.0.0.1:4000/qvac/ask \
@@ -187,12 +187,12 @@ Ege's backend will own fresh questions, proof windows, retries, and final challe
 Run the assessment checks with:
 
 ```bash
-node --test assessment.test.mjs
+node --test tests/assessment.test.mjs
 ```
 
 ## Read RGB balances and assets
 
-With the node unlocked and `node server.mjs` running, request the wallet snapshot:
+With the node unlocked and `node qvac/server.mjs` running, request the wallet snapshot:
 
 ```bash
 curl http://127.0.0.1:4000/rgb/wallet
@@ -222,7 +222,7 @@ Requests time out after 10 seconds. The endpoint never returns wallet keys or se
 Run the wallet checks with:
 
 ```bash
-node --test rgb-wallet.test.mjs
+node --test tests/rgb-wallet.test.mjs
 ```
 
 Reference: [RGB Lightning Node API specification](https://github.com/RGB-Tools/rgb-lightning-node/blob/master/openapi.yaml).

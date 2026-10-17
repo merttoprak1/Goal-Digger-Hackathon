@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readWallet, formatAtomic } from "./wallet.ts";
+import { readWallet, formatAtomic } from "../app/lib/wallet.ts";
 const assetId = "rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0";
 test("formats integer amounts without precision loss", () => {
   assert.equal(formatAtomic("9007199254740993", 6), "9007199254.740993");
@@ -58,7 +58,7 @@ test("missing, locked, wrong-protocol, and failed providers never show a zero ba
 });
 
 test("a new page session restores a remembered connection with a fresh wallet read", async () => {
-  const { createWalletSession } = await import("./wallet.ts");
+  const { createWalletSession } = await import("../app/lib/wallet.ts");
   const values = new Map<string, string>();
   const storage = {
     getItem: (key: string) => values.get(key) ?? null,
@@ -94,7 +94,7 @@ test("a new page session restores a remembered connection with a fresh wallet re
 });
 
 test("a rejected connection is not remembered and a failed restore never returns an old balance", async () => {
-  const { createWalletSession } = await import("./wallet.ts");
+  const { createWalletSession } = await import("../app/lib/wallet.ts");
   const values = new Map<string, string>();
   const storage = {
     getItem: (key: string) => values.get(key) ?? null,

@@ -42,10 +42,10 @@ Goal Digger operates the WDK vault and controls its keys.
 ## Checks
 
 ```bash
-node --test frontend/app/lib/wallet.test.ts
+node --test frontend/tests/wallet.test.ts
 npm run typecheck --prefix frontend
 npm run build --prefix frontend
-node --test *.test.mjs
+node --test tests/*.test.mjs
 ```
 
 The five wallet tests passed, including connection restoration after reload and failed restoration.

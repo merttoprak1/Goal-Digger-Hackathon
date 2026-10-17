@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { executePayoutTransfer } from "./payout-transfer.mjs";
+import { executePayoutTransfer } from "../vault/payout-transfer.mjs";
 const assetId = "rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0";
 const saved = () => ({
   payoutId: "award-1",

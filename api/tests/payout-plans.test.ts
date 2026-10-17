@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { allocatePool } from "../src/store/payout-plans.js";
 import type { BettingSnapshot } from "../src/store/betting.js";
 import { createApp } from "../src/app.js";
-import { openStakeDeposits } from "../../stake-deposits.mjs";
+import { openStakeDeposits } from "../../vault/stake-deposits.mjs";
 const cleanup: Array<() => void> = [];
 afterEach(() => {
   vi.useRealTimers();

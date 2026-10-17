@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validatePayoutInvoice } from "./payout-invoice.mjs";
+import { validatePayoutInvoice } from "../vault/payout-invoice.mjs";
 
 const decoded = {
   network: "SignetCustom",

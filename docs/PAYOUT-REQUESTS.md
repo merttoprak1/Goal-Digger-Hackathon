@@ -68,7 +68,7 @@ This table does not track transfers from the earlier manual test scripts.
 ## Checks
 
 ```bash
-node --test payout-requests.test.mjs vault.test.mjs payout-invoice.test.mjs stake-deposits.test.mjs assessment.test.mjs rgb-wallet.test.mjs
+node --test tests/payout-requests.test.mjs tests/vault.test.mjs tests/payout-invoice.test.mjs tests/stake-deposits.test.mjs tests/assessment.test.mjs tests/rgb-wallet.test.mjs
 ```
 
 On October 17, 2026, all 21 tests passed.

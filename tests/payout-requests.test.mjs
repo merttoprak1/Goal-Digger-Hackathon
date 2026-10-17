@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createVaultServer } from "./vault.mjs";
+import { createVaultServer } from "../vault/vault.mjs";
 
 const input = {
   payoutId: "challenge-1-winner",

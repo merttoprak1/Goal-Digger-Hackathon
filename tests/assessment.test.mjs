@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assessAnswer } from "./assessment.mjs";
+import { assessAnswer } from "../qvac/assessment.mjs";
 
 test("checks the fixed answer rather than a requested verdict", () => {
   assert.equal(assessAnswer('{"answer":25}', "My answer is 25.").verdict, "accepted");

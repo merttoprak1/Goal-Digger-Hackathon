@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { vaultPayouts } from "../../src/services/vault-payouts.js";
 import { createApp } from "../../src/app.js";
-import { openStakeDeposits } from "../../../stake-deposits.mjs";
+import { openStakeDeposits } from "../../../vault/stake-deposits.mjs";
 export const cleanup: Array<() => void> = [];
 afterEach(() => {
   vi.useRealTimers();

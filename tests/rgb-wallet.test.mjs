@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getRgbWallet, parseNodeJson } from "./rgb-wallet.mjs";
+import { getRgbWallet, parseNodeJson } from "../qvac/rgb-wallet.mjs";
 
 const zero = { settled: 0, future: 0, spendable: 0 };
 const empty = { nia: [], uda: [], cfa: [], ifa: [] };

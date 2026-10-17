@@ -11,7 +11,7 @@ Use Node.js 24 or later. From the repository root, start a separate private serv
 ```bash
 read -s VAULT_API_TOKEN
 export VAULT_API_TOKEN
-node vault.mjs
+node vault/vault.mjs
 ```
 
 Enter a private token at the prompt. The server refuses to start without a token.
@@ -98,7 +98,7 @@ The next step is to connect confirmed deposits to challenge stake records in Ege
 ## Checks
 
 ```bash
-node --test vault.test.mjs assessment.test.mjs rgb-wallet.test.mjs
+node --test tests/vault.test.mjs tests/assessment.test.mjs tests/rgb-wallet.test.mjs
 ```
 
 On October 17, 2026, all 12 tests passed.

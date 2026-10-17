@@ -9,8 +9,8 @@ Challenge records still use mocks. The Goaly client does not use mock replies.
 Run each process in a separate terminal from the repository root:
 
 ```bash
-qvac serve --openai --config qvac.config.mjs
-node server.mjs
+qvac serve --openai --config qvac/qvac.config.mjs
+node qvac/server.mjs
 npm run dev --prefix frontend -- --host 127.0.0.1
 ```
 
@@ -22,7 +22,7 @@ This target is separate from Ege's challenge API target.
 `POST /qvac/chat` accepts only `{ "prompt": "your challenge" }`.
 The prompt limit is 500 characters and the JSON body limit is 4 KB.
 The model request uses the existing `goal-digger` alias, 128 output tokens, and a 30-second timeout.
-QVAC uses the local Qwen3.5-2B GGUF configured in `qvac.config.mjs`.
+QVAC uses the local Qwen3.5-2B GGUF configured in `qvac/qvac.config.mjs`.
 The browser displays errors when QVAC is unavailable. It does not replace failures with a fabricated reply.
 
 Goaly suggests measurable goals, deadlines, timezones, and proof methods.
@@ -38,8 +38,8 @@ The earlier structured evidence assessment endpoint remains separate.
 ## Checks
 
 ```bash
-node --test *.test.mjs
-node --test frontend/app/lib/*.test.ts
+node --test tests/*.test.mjs
+node --test frontend/tests/*.test.ts
 npm run typecheck --prefix frontend
 npm run build --prefix frontend
 ```

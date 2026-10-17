@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { askGoaly } from "./goaly.ts";
+import { askGoaly } from "../app/lib/goaly.ts";
 test("Goaly uses the local chat proxy even while challenge mocks are enabled", async (t) => {
   t.mock.method(
     globalThis,

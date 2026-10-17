@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import type { StakeDeposits } from "../../../../stake-deposits.mjs";
+import type { StakeDeposits } from "../../../../vault/stake-deposits.mjs";
 import { ApiError } from "../../middlewares/error-handler.js";
 import type { vaultPayouts } from "../../services/vault-payouts.js";
 import type { openSessions } from "../../store/sessions.js";
