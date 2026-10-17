@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { askGoaly } from "~/lib/goaly";
-import type { ArbiterProfile } from "~/lib/contracts";
+
+const GREETING =
+  "I am Goaly. Describe your goal, deadline, and proof source. I can help plan the challenge, but cannot move funds.";
 
 const PRESETS = [
   {
@@ -32,9 +34,6 @@ function GoalyBubble({ text }: { text: string }) {
       <div className="mb-1.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] font-bold text-indigo-700">Goaly</span>
-          <span className="rounded-full bg-indigo-100/70 px-1.5 py-0.5 text-[9px] font-bold text-indigo-600">
-            AI ARBITER
-          </span>
         </div>
         <span className="font-mono text-[10px] text-slate-400">Just now</span>
       </div>
@@ -90,21 +89,17 @@ function TypingIndicator({
   );
 }
 
-export function ArbiterPanel({ arbiter }: { arbiter: ArbiterProfile }) {
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    arbiter.greeting.map((text, index) => ({
-      id: index,
-      from: "goaly" as const,
-      text,
-    })),
-  );
+export function ArbiterPanel() {
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    { id: 0, from: "goaly", text: GREETING },
+  ]);
   const [draft, setDraft] = useState("");
   const [stake, setStake] = useState("10");
   const [working, setWorking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const nextId = useRef(arbiter.greeting.length);
+  const nextId = useRef(1);
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -163,18 +158,10 @@ export function ArbiterPanel({ arbiter }: { arbiter: ArbiterProfile }) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </span>
-            {arbiter.name} • {arbiter.role}
+            Goaly • Planning assistant
           </span>
           <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
-            {arbiter.agent}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-          <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-700">
-            {arbiter.level}
-          </span>
-          <span className="rounded-md border border-violet-100 bg-violet-50 px-2 py-0.5 text-violet-700">
-            {arbiter.accuracy}
+            Local QVAC
           </span>
         </div>
       </div>
@@ -183,10 +170,7 @@ export function ArbiterPanel({ arbiter }: { arbiter: ArbiterProfile }) {
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
           <button
             type="button"
-            onClick={() => {
-              say("Hey! Stop poking the Arbiter and go finish your challenges!");
-              speak();
-            }}
+            onClick={() => inputRef.current?.focus()}
             title="Click to interact with Goaly!"
             className="group flex shrink-0 cursor-pointer flex-col items-center"
           >
@@ -222,7 +206,7 @@ export function ArbiterPanel({ arbiter }: { arbiter: ArbiterProfile }) {
           </div>
         </div>
 
-        <TypingIndicator working={working} idleText={arbiter.statusText} />
+        <TypingIndicator working={working} idleText="Local QVAC replies" />
 
         <div className="mt-1">
           <span className="mb-2 block text-[11px] font-bold tracking-wider text-slate-400 uppercase">

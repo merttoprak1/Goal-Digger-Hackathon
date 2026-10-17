@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/challenges";
-import { ARBITER } from "~/lib/mock-store";
 import {
   BoardError,
   boardSession,
@@ -28,7 +27,6 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Challenges() {
-  const arbiter = ARBITER;
   const [ready, setReady] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -132,14 +130,9 @@ export default function Challenges() {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-8 lg:px-8">
       <div className="flex flex-col items-center justify-center gap-2 border-b border-slate-200 pb-6 text-center">
-        <div className="flex items-center justify-center gap-3">
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            Challenges
-          </h1>
-          <span className="rounded-full border border-indigo-200/80 bg-indigo-50 px-2.5 py-1 text-xs font-bold tracking-wider text-indigo-700 uppercase">
-            v2.4 Live
-          </span>
-        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+          Challenges
+        </h1>
         <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-relaxed font-normal text-slate-500 sm:text-base">
           Your drafts and every published challenge come from the live API.
           Opening this page does not move funds.
@@ -305,7 +298,7 @@ export default function Challenges() {
           </div>
         </div>
 
-        <ArbiterPanel arbiter={arbiter} />
+        <ArbiterPanel />
       </div>
       ) : null}
     </main>

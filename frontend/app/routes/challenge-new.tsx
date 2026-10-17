@@ -12,7 +12,6 @@ export function meta({}: Route.MetaArgs) {
 
 /* --------------------------------- config -------------------------------- */
 
-const WALLET_USDT = 82.5;
 const ORACLE_LABEL = "Apple Health + Camera Feed";
 const HORIZON_OPTIONS = [3, 5, 7, 14];
 
@@ -40,21 +39,21 @@ const FORFEITS = [
     id: "donate" as const,
     emoji: "🎗",
     title: "Donate to Verified Charity",
-    body: "Turn failure into a noble deed. Funds are pushed directly to non-profit multisig.",
+    body: "This choice is shown on the form. It is not stored.",
     badge: null,
   },
   {
     id: "burn" as const,
     emoji: "🔥",
     title: "Burn the Stake (Proof-of-Burn)",
-    body: "Sent to unspendable OP_RETURN burn address bc1q...dead0000 forever.",
+    body: "This choice is shown on the form. It is not stored.",
     badge: "Hardcore",
   },
   {
     id: "rollover" as const,
     emoji: "🔄",
     title: "Rollover to Next Week's Goal Vault",
-    body: "Locked into your personal disciplinary timelock for 14 additional days.",
+    body: "This choice is shown on the form. It is not stored.",
     badge: "Timelock",
   },
 ];
@@ -80,19 +79,7 @@ const GREETING: ChatMessage[] = [
     id: 1,
     from: "goaly",
     text: "I am Goaly, your local challenge planning assistant. Describe a measurable goal and how you will prove it.",
-    detail:
-      '💡 Examples: "Run 10km under 60 mins" • "100 pushups daily" • "Skip 5 GitHub commits"',
-  },
-  {
-    id: 2,
-    from: "user",
-    text: "I want to do 100 pushups daily for 5 days tracked via Apple Fitness / camera proof.",
-  },
-  {
-    id: 3,
-    from: "goaly",
-    text: "Awesome challenge! 🔥 I've auto-configured the oracle listeners for Apple Health & Camera Validator.",
-    oracle: "5 consecutive days • 100 reps quota",
+    detail: "I cannot connect a proof source or move funds.",
   },
 ];
 
@@ -120,15 +107,7 @@ function GoalyHeader() {
         />
       </div>
       <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-base font-bold text-slate-900">Goaly</span>
-          <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-indigo-700 uppercase">
-            AI Arbiter
-          </span>
-        </div>
-        <p className="text-xs font-medium text-slate-500">
-          Discreet Log Oracle • Level 42 Referee
-        </p>
+        <span className="text-base font-bold text-slate-900">Goaly</span>
       </div>
     </div>
   );
@@ -171,9 +150,7 @@ function UserBubble({ message }: { message: ChatMessage }) {
     <div className="max-w-[92%] self-end rounded-2xl rounded-br-sm bg-indigo-600 p-3 text-xs text-white shadow-sm">
       <p className="leading-relaxed font-medium">{message.text}</p>
       <div className="mt-1.5 flex items-center justify-end gap-1">
-        <span className="font-mono text-[9px] text-indigo-200">
-          {message.id === 2 ? "10:42 AM" : "Just now"}
-        </span>
+        <span className="font-mono text-[9px] text-indigo-200">Just now</span>
         <Icon name="done_all" className="text-[13px] text-indigo-200" />
       </div>
     </div>
@@ -224,16 +201,6 @@ export default function ChallengeNew() {
     goalText.length > 110 ? `${goalText.slice(0, 109)}…` : goalText;
 
   const stakeNumber = Number(stake);
-  const xp = Number.isFinite(stakeNumber)
-    ? Math.round(Math.max(0, stakeNumber) * 70)
-    : 0;
-
-  const defaultOutcome =
-    forfeit === "donate"
-      ? `${charity.split(" (")[0]} Clean Water Fund`
-      : forfeit === "burn"
-        ? "OP_RETURN Burn • bc1q…dead0000"
-        : "Goal Vault Rollover • +14 days";
 
   async function submit(mode: "draft" | "deploy") {
     setError(null);
@@ -289,19 +256,12 @@ export default function ChallengeNew() {
           </span>
         </div>
 
-        <span className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-          ORACLE SYNCED: MUTINYNET BLOCK #849,203
-          <span className="text-emerald-300">•</span>
-          Draft only
+        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+          Draft only. Saving does not move funds.
         </span>
       </div>
 
       <div className="flex flex-col items-center gap-2.5 border-b border-slate-200 pb-6 text-center">
-        <span className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-bold tracking-wide text-indigo-700 uppercase">
-          <Icon name="bolt" className="text-[14px]" />
-          Powered by Goaly Arbiter
-        </span>
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
           Create Custom Challenge
         </h1>
@@ -316,12 +276,6 @@ export default function ChallengeNew() {
         <div className="flex flex-col gap-4 lg:col-span-5">
           <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
             <GoalyHeader />
-            <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span className="text-xs font-semibold text-emerald-600">
-                Verified Contract Signer
-              </span>
-            </div>
           </section>
 
           <section className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
@@ -579,9 +533,6 @@ export default function ChallengeNew() {
                   <span className="text-xs font-bold text-slate-700">
                     Staking Commitment
                   </span>
-                  <span className="font-mono text-[11px] font-semibold text-slate-400">
-                    Wallet: {WALLET_USDT.toFixed(2)} USDT
-                  </span>
                 </div>
 
                 <div className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 transition focus-within:border-indigo-500 focus-within:bg-white">
@@ -597,11 +548,6 @@ export default function ChallengeNew() {
                   <span className="font-mono text-[10px] font-bold text-slate-400">
                     USDT
                   </span>
-                  <Icon
-                    name="check_circle"
-                    filled
-                    className="text-[16px] text-emerald-500"
-                  />
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -620,13 +566,6 @@ export default function ChallengeNew() {
                       {amount} USDT
                     </button>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => setStake(WALLET_USDT.toFixed(2))}
-                    className="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-mono text-[11px] font-bold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
-                  >
-                    MAX
-                  </button>
                 </div>
               </div>
 
@@ -636,7 +575,7 @@ export default function ChallengeNew() {
                     Challenge Horizon
                   </span>
                   <span className="text-[11px] font-semibold text-slate-400">
-                    Auto-Locks at 23:59 UTC
+                    Days until the proof deadline
                   </span>
                 </div>
 
@@ -667,38 +606,22 @@ export default function ChallengeNew() {
                 </div>
 
                 <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-slate-400">
-                  <span>Start: Immediately upon signature</span>
-                  <span>Oracle Tick: Daily 24h</span>
+                  <span>The draft starts one hour before the proof deadline.</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
-                  <Icon name="health_and_safety" className="text-[19px]" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-slate-800">
-                    Proof Oracle: {ORACLE_LABEL}
-                  </p>
-                  <p className="font-mono text-[10px] text-slate-400">
-                    Attestation signed via Goaly Schnorr public key: pubkey:82b64f
-                    ...a931
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold tracking-wide text-emerald-700 uppercase">
-                  Automated
-                </span>
-                <button
-                  type="button"
-                  className="flex cursor-pointer items-center gap-1 text-[11px] font-bold text-indigo-600 transition hover:text-indigo-800"
-                >
-                  View Oracle Spec
-                  <Icon name="open_in_new" className="text-[14px]" />
-                </button>
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
+                <Icon name="health_and_safety" className="text-[19px]" />
+              </span>
+              <div>
+                <p className="text-xs font-bold text-slate-800">
+                  Declared proof source: {ORACLE_LABEL}
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  This text is saved with the draft. It does not connect a device.
+                </p>
               </div>
             </div>
 
@@ -715,42 +638,20 @@ export default function ChallengeNew() {
           <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-2.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-slate-500">
-                  Staked Principal
-                </span>
+                <span className="font-medium text-slate-500">Draft stake</span>
                 <span className="font-mono font-bold text-slate-900">
-                  {xp > 0 ? Number(stake).toFixed(2) : "0.00"}{" "}
+                  {Number.isFinite(stakeNumber) && stakeNumber > 0
+                    ? stakeNumber.toFixed(2)
+                    : "0.00"}{" "}
                   <span className="text-[10px] font-semibold text-slate-400">
                     USDT
                   </span>
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-slate-500">
-                  Potential Gamified Return (
-                  {visibility === "solo" ? "Solo XP" : "Public Pool"})
-                </span>
-                <span className="font-mono font-bold text-indigo-600">
-                  +{xp.toLocaleString("en-US")} XP = Habit Streak
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-slate-500">
-                  Taproot Escrow Miner Fee (Mutinynet)
-                </span>
-                <span className="font-mono font-bold text-slate-700">
-                  ~0.00001200 BTC{" "}
-                  <span className="text-[10px] font-semibold text-slate-400">
-                    (~$0.00 Testnet)
-                  </span>
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-slate-500">
-                  Default Outcome on Incompletion
-                </span>
-                <span className="font-mono font-bold text-violet-600">
-                  {defaultOutcome}
+                <span className="font-medium text-slate-500">Proof horizon</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {horizonDays} days
                 </span>
               </div>
             </div>

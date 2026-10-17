@@ -2,7 +2,7 @@
 
 The `qvac-RGB` branch includes Vesim's frontend from commit `5ae3813` through a normal merge.
 The new `/wallet` route reads the KaleidoSwap extension directly.
-Challenge screens still use mock data while Ege builds the backend.
+Challenge screens read the live challenge API.
 A visible banner labels this state. Vault keys and tokens remain outside the frontend.
 
 ## Start

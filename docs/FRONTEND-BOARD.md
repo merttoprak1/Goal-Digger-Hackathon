@@ -1,7 +1,7 @@
 # Challenge board
 
 Open `/challenges`. The page reads the live challenge API on port 4002.
-The amber demo banner is gone. Profile screens still use local demo records.
+The amber demo banner is gone. Profile lists the signed-in participant's live challenges.
 
 ## What the board shows
 

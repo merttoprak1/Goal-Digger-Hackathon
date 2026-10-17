@@ -10,7 +10,6 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import { PROTOCOL_STATUS } from "~/lib/mock-store";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -170,30 +169,15 @@ function AppFooter() {
   return (
     <footer className="mt-auto border-t border-slate-200 bg-white px-4 py-6">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs font-medium text-slate-500 sm:flex-row">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-indigo-600">●</span>
-          <span className="font-bold text-slate-700">
-            Demo block #{PROTOCOL_STATUS.blockHeight}
-          </span>
-          <span className="text-slate-300">|</span>
-          <span className="font-semibold text-slate-600">
-            Demo protocol status
-          </span>
-        </div>
         <p className="text-center font-normal text-slate-500">
-          {PROTOCOL_STATUS.team}
+          Team Bounty Hunters • RGB + QVAC on Bitcoin
         </p>
-        <div className="flex items-center gap-4 font-semibold text-slate-500">
-          {PROTOCOL_STATUS.links.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className="transition hover:text-indigo-600"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
+        <a
+          href="https://github.com/merttoprak1/Goal-Digger-Hackathon"
+          className="font-semibold text-slate-500 transition hover:text-indigo-600"
+        >
+          GitHub
+        </a>
       </div>
     </footer>
   );
