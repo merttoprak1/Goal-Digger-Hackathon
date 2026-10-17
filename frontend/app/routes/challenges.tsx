@@ -11,7 +11,6 @@ import type {
   ArbiterProfile,
   Challenge,
   ChallengeStatus,
-  ChallengeTone,
   ChallengesSnapshot,
 } from "~/lib/contracts";
 
@@ -44,11 +43,6 @@ const TITLE_HOVER: Record<ChallengeStatus, string> = {
   draft: "group-hover:text-indigo-600",
   open: "group-hover:text-indigo-600",
   new: "group-hover:text-indigo-600",
-};
-
-/** Exhaustive map: adding a tone to `ChallengeTone` fails the build until it has a class. */
-const ACTION_TONE: Record<ChallengeTone, string> = {
-  indigo: "bg-indigo-600 hover:bg-indigo-700",
 };
 
 const PRESETS = [
@@ -150,7 +144,7 @@ function ChallengeCard({
               <button
                 type="button"
                 onClick={() => onAction(challenge)}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-bold text-white shadow-sm transition ${ACTION_TONE[action.tone]}`}
+                className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm transition hover:bg-indigo-700"
               >
                 {action.label}
               </button>

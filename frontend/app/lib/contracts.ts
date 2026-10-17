@@ -23,18 +23,12 @@ export const CHALLENGE_TEMPLATES = [
 export type ChallengeTemplate = (typeof CHALLENGE_TEMPLATES)[number];
 
 /**
- * Colour family a card uses for pool figures, buttons and hover states. Every
- * card is indigo now that the violet counter-stake accent has been retired; the
- * union stays so a second family can come back without touching callers.
- */
-export type ChallengeTone = "indigo";
-
-/**
  * Footer of a challenge card. Either an actionable counter-stake or a passive
- * status line (used by drafts that cannot be joined yet).
+ * status line (used by drafts that cannot be joined yet). The button carries no
+ * tone: every card action is the same indigo.
  */
 export type ChallengeAction =
-  | { kind: "button"; label: string; tone: ChallengeTone }
+  | { kind: "button"; label: string }
   | { kind: "info"; label: string; note: string };
 
 export interface Challenge {
