@@ -15,10 +15,11 @@ export function challengeRoutes(store:ReturnType<typeof openSessions>,stakes?:St
   const reviewRequired=timely.length!==credits.length;
   const funded=creator && Date.parse(creator.creditedAt)<Date.parse(challenge.bettingCutoff);
   const open=Date.now()<Date.parse(challenge.bettingCutoff);
-  return {...challenge,publishedAt,reviewRequired,
+  const outcome=store.getOutcome(challenge.id);
+  return {...challenge,publishedAt,reviewRequired,outcome,
     confirmedPoolAtomic:credits.reduce((total,c)=>total+BigInt(c.amountAtomic),0n).toString(),
     eligiblePoolAtomic:timely.reduce((total,c)=>total+BigInt(c.amountAtomic),0n).toString(),
-    status:reviewRequired?'funding_review':publishedAt?(open?'open':'betting_closed'):funded?'funded':'draft'};
+    status:reviewRequired?'funding_review':outcome?(outcome.status==='success'?'succeeded':'failed'):publishedAt?(open?'open':'betting_closed'):funded?'funded':'draft'};
  };
  router.use((req,res,next)=>{res.locals.participant=sessionIdentity(store,req.header('authorization')).participant;next();});
  router.post('/',(req,res)=>{
@@ -84,6 +85,15 @@ export function challengeRoutes(store:ReturnType<typeof openSessions>,stakes?:St
  router.get('/:id/proofs',(req,res)=>{
   const challenge=ownedMath(res.locals.participant.id,String(req.params.id));
   res.json({proofs:store.listMathProofs(challenge.id),accepted:store.mathAccepted(challenge.id)});
+ });
+ router.post('/:id/finalize',(req,res)=>{
+  if(!store.getPublished(String(req.params.id)))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  if(!z.object({}).strict().safeParse(req.body).success)throw new ApiError(400,'Send an empty JSON object.','INVALID_OUTCOME');
+  res.json({outcome:store.finalizeOutcome(String(req.params.id))});
+ });
+ router.get('/:id/outcome',(req,res)=>{
+  if(!store.getPublished(String(req.params.id)))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  res.json({outcome:store.getOutcome(String(req.params.id))});
  });
  router.post('/:id/publish',(req,res)=>{
   const challenge=store.getChallenge(res.locals.participant.id,String(req.params.id));

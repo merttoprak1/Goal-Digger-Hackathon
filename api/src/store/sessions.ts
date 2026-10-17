@@ -1,4 +1,5 @@
 import {mathProofs} from './math-proofs.js';
+import {outcomes} from './outcomes.js';
 import type {ChallengeDraftInput} from '../contracts/challenge.js';
 import {DatabaseSync} from 'node:sqlite';
 import {mkdirSync,chmodSync} from 'node:fs';
@@ -18,6 +19,7 @@ export function openSessions(databasePath:string,now:()=>number=()=>Date.now()){
  const hash=(token:string)=>createHash('sha256').update(token).digest('hex');
  return {
   ...mathProofs(db,now),
+  ...outcomes(db,now),
   create(displayName:string){
    const participant:Participant={id:randomUUID(),displayName,createdAt:new Date(now()).toISOString()};
    const token=randomBytes(32).toString('hex');const expiresAt=now()+7*24*60*60*1000;
