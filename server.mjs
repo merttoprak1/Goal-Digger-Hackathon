@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { assessmentFormat, assessmentMessages, assessAnswer } from './assessment.mjs';
 
 export async function getHealth(fetchService = fetch) {
   async function check(url, validate) {
@@ -29,7 +30,7 @@ function requestError(status, message) {
   return Object.assign(new Error(message), { status });
 }
 
-async function readPrompt(request) {
+async function readText(request, field) {
   if (request.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') {
     throw requestError(415, 'Send Content-Type: application/json.');
   }
@@ -47,13 +48,13 @@ async function readPrompt(request) {
   try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
   catch { throw requestError(400, 'Send valid JSON.'); }
   if (!body || Array.isArray(body) || typeof body !== 'object' || Object.keys(body).length !== 1 ||
-      typeof body.prompt !== 'string' || body.prompt.trim().length === 0 || body.prompt.length > 500) {
-    throw requestError(400, 'Send only a prompt containing 1 to 500 characters.');
+      typeof body[field] !== 'string' || body[field].trim().length === 0 || body[field].length > 500) {
+    throw requestError(400, `Send only ${field} containing 1 to 500 characters.`);
   }
-  return body.prompt.trim();
+  return body[field].trim();
 }
 
-async function askQvac(prompt) {
+async function askQvac(messages, responseFormat) {
   let upstream;
   try {
     upstream = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
@@ -62,10 +63,11 @@ async function askQvac(prompt) {
       signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({
         model: 'goal-digger',
-        messages: [{ role: 'user', content: prompt }],
+        messages,
         max_tokens: 128,
         temperature: 0,
         reasoning_budget: false,
+        ...(responseFormat ? { response_format: responseFormat } : {}),
       }),
     });
     if (!upstream.ok) throw requestError(502, `QVAC returned HTTP ${upstream.status}.`);
@@ -87,14 +89,23 @@ export const server = createServer({ requestTimeout: 10_000 }, async (request, r
   response.setHeader('Content-Type', 'application/json');
   response.setHeader('Cache-Control', 'no-store');
   const path = request.url?.split('?')[0];
-  if (path === '/qvac/ask') {
+  if (path === '/qvac/ask' || path === '/qvac/assess') {
     if (request.method !== 'POST') {
       response.setHeader('Allow', 'POST');
       response.writeHead(405).end(JSON.stringify({ error: 'Use POST for this endpoint.' }));
       return;
     }
     try {
-      const result = await askQvac(await readPrompt(request));
+      let result;
+      if (path === '/qvac/assess') {
+        const evidence = await readText(request, 'evidence');
+        const completion = await askQvac(assessmentMessages(evidence), assessmentFormat);
+        try { result = assessAnswer(completion.answer, evidence); }
+        catch { throw requestError(502, 'QVAC returned an invalid assessment.'); }
+      } else {
+        const prompt = await readText(request, 'prompt');
+        result = await askQvac([{ role: 'user', content: prompt }]);
+      }
       response.writeHead(200).end(JSON.stringify(result));
     } catch (error) {
       response.writeHead(error.status || 500).end(JSON.stringify({

@@ -130,5 +130,50 @@ Send only the `prompt` field, containing 1–500 characters. The request body mu
 
 Errors return an `error` message. They never return a fabricated model answer. This endpoint generates text only and does not assess challenge evidence yet.
 
+## Structured evidence assessment
+
+Send text evidence for the fixed demo question: **What is 17 + 8?**
+
+```bash
+curl http://127.0.0.1:4000/qvac/assess \
+  -H 'Content-Type: application/json' \
+  -d '{"evidence":"My answer is 25."}'
+```
+
+Example response:
+
+```json
+{
+  "rule": { "id": "wake-up-math-demo-v1", "question": "What is 17 + 8?" },
+  "verdict": "accepted",
+  "reason": "The submitted answer is correct."
+}
+```
+
+| Evidence | Expected verdict |
+|---|---|
+| My answer is 25. | accepted |
+| My answer is 24. | rejected |
+| I am not sure. | unclear |
+| Either 25 or 26. | unclear |
+
+QVAC extracts a numeric answer through a JSON schema. The server checks the result against the fixed answer and the numbers in the submitted evidence.
+
+Submit one numeric answer without the question or other numbers. Missing, conflicting, or unsupported answers produce `unclear`. Callers cannot submit a replacement rule or verdict.
+
+Send only an `evidence` string with 1–500 characters. The endpoint uses the same size limit, inference timeout, and service-error statuses as `/qvac/ask`.
+
+Invalid structured output returns HTTP 502. A service error never becomes a rejected answer or a lost challenge.
+
+Acceptance means the numeric answer matches this demo question. It does not prove identity, wake-up time, document authenticity, or completion of a real challenge.
+
+Ege's backend will own fresh questions, proof windows, retries, and final challenge outcomes. This endpoint cannot authorize a payment.
+
+Run the assessment checks with:
+
+```bash
+node --test assessment.test.mjs
+```
+
 ## Prior work
 No application code yet. Only the environment setup above existed before the hackathon; all app code is written during the event in dated commits.

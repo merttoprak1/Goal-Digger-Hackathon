@@ -8,6 +8,7 @@ Branch: `qvac-RGB`. Complete one task, check it, then commit and push before sta
 - [x] Check the unlocked RGB node with read-only requests.
 - [x] Add GET /health for both services.
 - [x] Add POST /qvac/ask with input limits and service errors.
+- [x] Add POST /qvac/assess for the fixed math demonstration.
 
 ## 1. Add one QVAC request endpoint (complete)
 
@@ -21,11 +22,11 @@ Done when: a request through our server gets a real local answer. An unavailable
 
 Suggested commit: `Add local QVAC request endpoint`.
 
-## 2. Return a structured evidence assessment
+## 2. Return a structured evidence assessment (complete)
 
-Estimate: 30–45 minutes.
+Status: checked with the real local model, including unclear evidence and attempts to override the rule.
 
-Add a local assessment with a fixed rule and text evidence. Return `accepted`, `rejected`, or `unclear`, plus a short reason.
+The fixed demo question is 17 + 8. QVAC extracts the numeric answer. The server returns `accepted`, `rejected`, or `unclear`, plus a reason.
 
 Check the model's output format before returning it. Malformed output and service errors must remain technical errors, not challenge failures.
 
@@ -89,4 +90,4 @@ Keep changes on the assigned branch. Merge shared changes normally. Never stash,
 
 ## Next action
 
-Implement task 2 only: a structured local assessment of text evidence.
+Implement task 3 only: read RGB balances and assets.
