@@ -1,7 +1,7 @@
 # Private vault payout requests
 
 This step saves a validated payout request in SQLite before any transfer.
-It does not send USDT, reserve funds, or decide who wins a challenge.
+Saving a request does not send USDT, reserve funds, or decide who wins a challenge.
 Use the private vault server and bearer token described in [VAULT-API.md](VAULT-API.md).
 
 ## Save a request
@@ -49,12 +49,12 @@ Invalid invoices and decoder failures do not create a payout record.
 
 `GET /vault/payouts/<payoutId>` requires the same bearer token.
 It returns the saved record, or HTTP 404 for an unknown ID.
-It does not call the wallet or decode the invoice again.
+It does not call the wallet or decode the invoice again. It includes the latest execution status if an attempt exists.
 An identical POST retry also returns the original record if its invoice later expires.
 
 `prepared` means only that the request passed validation when the vault saved it.
 It does not mean the invoice remains valid, funds exist, or a transfer succeeded.
-A future execution step must check these conditions again before signing.
+The separate [execution endpoint](PAYOUT-EXECUTION.md) checks these conditions again before signing.
 
 ## Backend responsibilities
 
@@ -75,4 +75,4 @@ On October 17, 2026, all 21 tests passed.
 The new tests cover authentication, input validation, decoder failures, concurrent requests, immutable retries, recipient reuse, and persistence after restart.
 The tests use temporary databases and do not send funds.
 
-The next small step is an explicit execution operation with a durable transfer journal.
+Use the separate [execution endpoint](PAYOUT-EXECUTION.md) to send a saved payout.

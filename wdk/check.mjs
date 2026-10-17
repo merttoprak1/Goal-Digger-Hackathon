@@ -3,13 +3,14 @@ import WalletManagerRgb from '@utexo/wdk-wallet-rgb'
 import bip39 from 'bip39' with { imports: 'bare-node-runtime/imports' }
 import fs from 'bare-fs'
 import { fileURLToPath } from 'bare-url'
+import { executePayoutTransfer } from '../payout-transfer.mjs'
 
 const dataDir = fileURLToPath(new URL('./data', import.meta.url))
 const walletDataDir = `${dataDir}/custom-signet`
 const indexerUrl = process.env.WDK_INDEXER_URL || 'https://esplora.signet.kaleidoswap.com'
 const transportEndpoint = 'rpcs://proxy.iriswallet.com/0.2/json-rpc'
 const mode = process.argv[2] || 'check'
-if (!['check', 'receive', 'refresh', 'prepare-slots', 'send-back', 'deposit', 'deposit-status'].includes(mode)) throw new Error('Invalid WDK operation.')
+if (!['check', 'receive', 'refresh', 'prepare-slots', 'send-back', 'deposit', 'deposit-status', 'execute-payout'].includes(mode)) throw new Error('Invalid WDK operation.')
 const assetId = 'rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0'
 const amountAtomic = 1_000_000
 process.env.GOAL_DIGGER_CUSTOM_SIGNET = '1'
@@ -43,7 +44,15 @@ try {
   // Cache the key pair first so dispose can erase it and close the wallet.
   void account.keyPair
   await account.syncWallet()
-  if (mode === 'deposit-status') {
+  if (mode === 'execute-payout') {
+    const payoutId = process.argv[3]
+    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(payoutId || '')) throw new Error('Invalid payout ID.')
+    const recordPath = `${walletDataDir}/payouts/${payoutId}.json`
+    const saved = JSON.parse(fs.readFileSync(recordPath, 'utf8'))
+    if (saved.payoutId !== payoutId) throw new Error('The payout journal has a different ID.')
+    result = await executePayoutTransfer({ account, saved,
+      saveRecord: record => fs.writeFileSync(recordPath, JSON.stringify(record, null, 2), { mode: 0o600 }) })
+  } else if (mode === 'deposit-status') {
     const recipientId = process.argv[3]
     if (!recipientId?.startsWith('sbc:wvout:') || recipientId.length > 200) throw new Error('Invalid deposit recipient.')
     await account.refreshWallet()

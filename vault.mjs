@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, chmodSync } from 'node:fs';
+import { mkdirSync, chmodSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
@@ -71,7 +71,27 @@ function decodeInvoice(invoice) {
     }));
 }
 
-export function createVaultServer({ token, databasePath, issueInvoice: issue = issueInvoice, readDeposit: inspect = readDeposit, decodeInvoice: decode = decodeInvoice }) {
+function sendPayout(saved) {
+  const cwd = fileURLToPath(new URL('./wdk/', import.meta.url));
+  const directory = `${cwd}data/custom-signet/payouts`;
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  // An existing journal requires reconciliation. Never overwrite it to retry a send.
+  writeFileSync(`${directory}/${saved.payoutId}.json`, JSON.stringify(saved), { mode: 0o600, flag: 'wx' });
+  return new Promise((resolve, reject) => execFile(`${cwd}/node_modules/.bin/bare`, ['check.mjs', 'execute-payout', saved.payoutId],
+    { cwd, timeout: 60_000, maxBuffer: 65536 }, (err, stdout) => {
+      if (err) return reject(new Error('The WDK payout result is uncertain.'));
+      try {
+        const body = JSON.parse(stdout);
+        const result = body.rgb;
+        if (body.nativeNetwork !== 'SignetCustom' || result?.status !== 'accepted' || result.payoutId !== saved.payoutId ||
+            result.assetId !== saved.assetId || result.amountAtomic !== saved.amountAtomic || result.recipientId !== saved.recipientId ||
+            result.invoice !== saved.invoice || !/^[a-f0-9]{64}$/.test(result.txid || '')) throw new Error();
+        resolve({ txid: result.txid });
+      } catch { reject(new Error('WDK returned an uncertain payout result.')); }
+    }));
+}
+
+export function createVaultServer({ token, databasePath, issueInvoice: issue = issueInvoice, readDeposit: inspect = readDeposit, decodeInvoice: decode = decodeInvoice, executePayout: execute = sendPayout }) {
   if (typeof token !== 'string' || !token) throw new Error('Set VAULT_API_TOKEN before starting the vault.');
   mkdirSync(dirname(databasePath), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(databasePath);
@@ -85,6 +105,11 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
   db.exec('CREATE TABLE IF NOT EXISTS payouts (id TEXT PRIMARY KEY, asset_id TEXT NOT NULL, recipient_id TEXT NOT NULL, result TEXT NOT NULL, UNIQUE(asset_id, recipient_id))');
   const readPayout = db.prepare('SELECT result FROM payouts WHERE id = ?');
   const insertPayout = db.prepare('INSERT INTO payouts VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING');
+  db.exec('CREATE TABLE IF NOT EXISTS payout_attempts (id TEXT PRIMARY KEY, result TEXT NOT NULL)');
+  const readAttempt = db.prepare('SELECT result FROM payout_attempts WHERE id = ?');
+  const claimAttempt = db.prepare('INSERT INTO payout_attempts VALUES (?, ?) ON CONFLICT DO NOTHING');
+  const updateAttempt = db.prepare('UPDATE payout_attempts SET result = ? WHERE id = ?');
+  const payoutResult = saved => ({ ...saved, ...JSON.parse(readAttempt.get(saved.payoutId)?.result || '{}') });
   let queue = Promise.resolve();
   const server = createServer({ requestTimeout: 10_000 }, async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
@@ -99,7 +124,7 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
         if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); throw error(405, 'Use GET for this endpoint.'); }
         const old = readPayout.get(payoutMatch[1]);
         if (!old) throw error(404, 'Payout ID not found.');
-        reply(200, JSON.parse(old.result));
+        reply(200, payoutResult(JSON.parse(old.result)));
         return;
       }
       const statusMatch = /^\/vault\/deposits\/([a-zA-Z0-9_-]{1,80})$/.exec(req.url || '');
@@ -122,7 +147,8 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
       }
       const payoutValidation = req.url === '/vault/payouts/validate';
       const payoutRequest = req.url === '/vault/payouts';
-      if (req.url !== '/vault/deposits' && !payoutValidation && !payoutRequest) throw error(404, 'Endpoint not found.');
+      const executionMatch = /^\/vault\/payouts\/([a-zA-Z0-9_-]{1,80})\/execute$/.exec(req.url || '');
+      if (req.url !== '/vault/deposits' && !payoutValidation && !payoutRequest && !executionMatch) throw error(404, 'Endpoint not found.');
       if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); throw error(405, 'Use POST for this endpoint.'); }
       if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw error(415, 'Send Content-Type: application/json.');
       let raw = '';
@@ -132,6 +158,37 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
       }
       let body;
       try { body = JSON.parse(raw); } catch { throw error(400, 'Send valid JSON.'); }
+      if (executionMatch) {
+        if (!body || Array.isArray(body) || typeof body !== 'object' || Object.keys(body).length) throw error(400, 'Send an empty JSON object. Execution uses the saved payout details.');
+        const operation = queue.then(async () => {
+          const old = readPayout.get(executionMatch[1]);
+          if (!old) throw error(404, 'Payout ID not found.');
+          const saved = JSON.parse(old.result);
+          const existing = readAttempt.get(saved.payoutId);
+          if (existing) {
+            const result = payoutResult(saved);
+            return [result.status === 'accepted' ? 200 : 409, result];
+          }
+          const validated = validatePayoutInvoice(await decode(saved.invoice), saved.amountAtomic);
+          if (!validated.valid) return [422, validated];
+          if (validated.assetId !== saved.assetId || validated.recipientId !== saved.recipientId) return [422, { valid: false, reason: 'The decoded invoice differs from the saved payout.' }];
+          const attempt = { status: 'unknown', attemptedAt: new Date().toISOString(), txid: null };
+          // SQLite commits the claim before WDK starts. An uncertain attempt cannot be retried.
+          if (!claimAttempt.run(saved.payoutId, JSON.stringify(attempt)).changes) {
+            const result = payoutResult(saved);
+            return [result.status === 'accepted' ? 200 : 409, result];
+          }
+          const transfer = await execute(saved);
+          if (typeof transfer?.txid !== 'string' || !/^[a-f0-9]{64}$/.test(transfer.txid)) throw new Error('Uncertain payout transaction ID.');
+          Object.assign(attempt, { status: 'accepted', txid: transfer.txid });
+          updateAttempt.run(JSON.stringify(attempt), saved.payoutId);
+          return [200, { ...saved, ...attempt }];
+        });
+        queue = operation.catch(() => {});
+        const [status, result] = await operation;
+        reply(status, result);
+        return;
+      }
       if (payoutRequest) {
         if (!body || Object.keys(body).sort().join(',') !== 'amountAtomic,challengeId,invoice,participantId,payoutId' ||
             ['payoutId', 'challengeId', 'participantId'].some(key => typeof body[key] !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(body[key])) ||
@@ -195,7 +252,7 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
       queue = operation.catch(() => {});
       const [status, result] = await operation;
       reply(status, result);
-    } catch (e) { reply(e.status || 503, { error: e.status ? e.message : 'The vault request failed. Reconcile this payment ID before retrying.' }); }
+    } catch (e) { reply(e.status || 503, { error: e.status ? e.message : 'The vault request failed. Check its saved record before retrying.' }); }
   });
   return { server, close: () => db.close() };
 }
