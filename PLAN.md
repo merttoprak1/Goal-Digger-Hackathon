@@ -1,6 +1,6 @@
 # Goal Digger hackathon plan
 
-Status: restart in small steps on qvac-RGB. The earlier app skeleton was removed. Local QVAC text inference now works.
+Status: restart in small steps on qvac-RGB. The earlier app skeleton was removed. Local QVAC inference, the RGB connection check, and GET /health now work.
 
 ## Product rules
 
@@ -67,7 +67,7 @@ Run local QVAC inference with suitable evidence. Test accepted, rejected, and un
 
 Complete a real RGB transfer on Mutinynet and confirm receipt. Record the asset identifier and precision. Label test assets accurately in the interface.
 
-Earlier checks found QVAC CLI 0.15.0 and a locked RGB node on port 3001. Docker's health check lacked curl. Recheck before making changes.
+QVAC CLI 0.15.0 and the unlocked RGB node on port 3001 passed connection checks. The local health endpoint now checks both services.
 
 Done when: local inference and a real transfer work independently.
 
@@ -125,4 +125,4 @@ The event PDFs and resource spreadsheet are in the parent workspace's HackathonO
 
 ## Next small step
 
-Read [the shared API contract](docs/API.md). Resolve wallet custody, empty pools, and service failures, then prove the QVAC and RGB integrations.
+Follow [TASKS.md](TASKS.md), one task at a time. The next task is POST /qvac/ask. The earlier shared API contract was removed with the app skeleton.

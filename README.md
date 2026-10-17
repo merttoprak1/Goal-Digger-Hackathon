@@ -23,7 +23,7 @@ Unclear evidence allows another attempt before the deadline. No accepted proof b
 
 QVAC assesses evidence locally against the declared rules. RGB handles the stakes and payouts on Bitcoin. The hackathon demo uses test assets on Mutinynet.
 
-See [PLAN.md](PLAN.md) for the team split, challenge templates, implementation steps, and open decisions.
+See [TASKS.md](TASKS.md) for the next small integration steps. See [PLAN.md](PLAN.md) for the product rules and team split.
 
 ## Stack
 - RGB Lightning Node + kaleido-cli
