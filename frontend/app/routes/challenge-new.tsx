@@ -219,23 +219,43 @@ export default function ChallengeNew() {
 
   const nextId = useRef(GREETING.length + 1);
   const timers = useRef<number[]>([]);
+  const feedRef = useRef<HTMLElement>(null);
+  const stickToBottom = useRef(true);
 
   useEffect(() => {
     const pending = timers.current;
     return () => pending.forEach((id) => window.clearTimeout(id));
   }, []);
 
+  // Chat convention: follow the newest message only while the reader is already
+  // at the bottom, so scrolling up to re-read stays put. The pin is recomputed
+  // just before each append (see `pinIfAtBottom`), while the feed still reflects
+  // the pre-append scroll position.
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (feed && stickToBottom.current) feed.scrollTop = feed.scrollHeight;
+  }, [messages]);
+
+  function pinIfAtBottom() {
+    const feed = feedRef.current;
+    if (!feed) return;
+    stickToBottom.current =
+      feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
+  }
+
   function send(raw: string) {
     const text = raw.trim();
     if (!text) return;
 
     setInput("");
+    pinIfAtBottom();
     setMessages((current) => [
       ...current,
       { id: nextId.current++, from: "user", text },
     ]);
 
     const timer = window.setTimeout(() => {
+      pinIfAtBottom();
       setMessages((current) => [
         ...current,
         {
@@ -351,7 +371,10 @@ export default function ChallengeNew() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+          <section
+            ref={feedRef}
+            className="chat-feed flex max-h-[22rem] flex-col gap-3 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm"
+          >
             {messages.map((message) =>
               message.from === "goaly" ? (
                 <GoalyBubble key={message.id} message={message} />

@@ -256,17 +256,34 @@ function ArbiterPanel({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const nextId = useRef(arbiter.greeting.length);
   const timers = useRef<number[]>([]);
+  const feedRef = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
 
   useEffect(() => {
     const pending = timers.current;
     return () => pending.forEach((id) => window.clearTimeout(id));
   }, []);
 
+  // Follow the newest line only while the reader is already at the bottom, so
+  // scrolling back up to re-read the contract is not interrupted.
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (feed && stickToBottom.current) feed.scrollTop = feed.scrollHeight;
+  }, [messages]);
+
+  function pinIfAtBottom() {
+    const feed = feedRef.current;
+    if (!feed) return;
+    stickToBottom.current =
+      feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
+  }
+
   function schedule(callback: () => void, ms: number) {
     timers.current.push(window.setTimeout(callback, ms));
   }
 
   function say(text: string) {
+    pinIfAtBottom();
     setMessages((current) => [
       ...current,
       { id: nextId.current++, from: "goaly", text },
@@ -300,6 +317,7 @@ function ArbiterPanel({
     const goal = draft.trim();
     if (!goal) return;
 
+    pinIfAtBottom();
     setMessages((current) => [
       ...current,
       { id: nextId.current++, from: "user", text: `${goal} (Stake: ${stake} USDT)` },
@@ -377,7 +395,10 @@ function ArbiterPanel({
             </span>
           </button>
 
-          <div className="flex w-full flex-1 flex-col gap-2.5 pt-2">
+          <div
+            ref={feedRef}
+            className="chat-feed flex max-h-72 w-full flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pt-2 pr-1"
+          >
             {messages.map((message) =>
               message.from === "goaly" ? (
                 <GoalyBubble key={message.id} text={message.text} />

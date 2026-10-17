@@ -65,6 +65,11 @@ Shared visual language:
 - **Header:** one row — logo, centered nav pills (Challenges / Create Challenge /
   Profile), a Mutinynet status pill, and the placeholder profile avatar linking
   to `/profile`.
+- **Chats:** the two arbiter transcripts (the arena panel and the create builder)
+  are bounded, independently scrollable feeds (`.chat-feed`). They follow new
+  messages only while you are already at the bottom, so scrolling up to re-read
+  the earlier messages is never interrupted, and the page around them does not
+  grow as the conversation does.
 
 ### `/challenges` — the arena
 

@@ -84,6 +84,29 @@
     }
   }
 
+  /* Scrollable arbiter transcript. Bounding it keeps the page around the chat
+     from growing as the conversation does; the reader scrolls the feed, and
+     scroll chaining to the page is contained. */
+  .chat-feed {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .chat-feed::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .chat-feed::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+  }
+
+  .chat-feed::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+  }
+
   /* Gentle idle float for the arbiter mascot. */
   .mascot-alive {
     animation: mascot-natural-float 3.4s ease-in-out infinite;
