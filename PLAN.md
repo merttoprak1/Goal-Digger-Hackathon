@@ -125,4 +125,4 @@ The event PDFs and resource spreadsheet are in the parent workspace's HackathonO
 
 ## Next small step
 
-Follow [TASKS.md](TASKS.md), one task at a time. The next task is POST /qvac/ask. The earlier shared API contract was removed with the app skeleton.
+Follow [TASKS.md](TASKS.md), one task at a time. POST /qvac/ask is complete. The next task is a structured local evidence assessment. The earlier shared API contract was removed with the app skeleton.

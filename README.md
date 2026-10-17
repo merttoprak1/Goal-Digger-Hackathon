@@ -101,5 +101,34 @@ RGB passes when the unlocked node returns its information. The endpoint never re
 
 The server uses localhost port 4000 and requires no npm dependencies.
 
+## Ask local QVAC
+
+With `node server.mjs` running, send a short prompt:
+
+```bash
+curl http://127.0.0.1:4000/qvac/ask \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"What is 2 + 2? Reply with only the number."}'
+```
+
+Example response:
+
+```json
+{"answer":"4","model":"goal-digger"}
+```
+
+Send only the `prompt` field, containing 1–500 characters. The request body must not exceed 4 KB. Inference has a 30-second timeout.
+
+| HTTP status | Meaning |
+|---|---|
+| 400 | Invalid JSON or prompt |
+| 413 | Request body too large |
+| 415 | Incorrect content type |
+| 502 | QVAC rejected the request or returned an unusable response |
+| 503 | Local QVAC is unavailable |
+| 504 | QVAC timed out |
+
+Errors return an `error` message. They never return a fabricated model answer. This endpoint generates text only and does not assess challenge evidence yet.
+
 ## Prior work
 No application code yet. Only the environment setup above existed before the hackathon; all app code is written during the event in dated commits.

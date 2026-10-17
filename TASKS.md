@@ -7,10 +7,11 @@ Branch: `qvac-RGB`. Complete one task, check it, then commit and push before sta
 - [x] Run the downloaded Qwen model locally through QVAC.
 - [x] Check the unlocked RGB node with read-only requests.
 - [x] Add GET /health for both services.
+- [x] Add POST /qvac/ask with input limits and service errors.
 
-## 1. Add one QVAC request endpoint
+## 1. Add one QVAC request endpoint (complete)
 
-Estimate: 20–30 minutes.
+Status: implemented and checked with the real local model.
 
 Add `POST /qvac/ask`. Accept a short text prompt and return the local model's answer.
 
@@ -88,4 +89,4 @@ Keep changes on the assigned branch. Merge shared changes normally. Never stash,
 
 ## Next action
 
-Implement task 1 only: `POST /qvac/ask`.
+Implement task 2 only: a structured local assessment of text evidence.
