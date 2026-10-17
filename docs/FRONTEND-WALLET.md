@@ -24,6 +24,11 @@ It displays the reported network and available amount for the exact supported te
 It does not use the ticker alone to identify USDT or convert large atomic amounts to floating point.
 An absent asset appears as `Asset not present`. A failed read displays an error, not a zero balance.
 Refresh after transfers or network changes. The displayed value is a snapshot.
+After a successful connection, the page remembers only a connection flag in local storage.
+On reload, it waits up to five seconds for extension injection and reads fresh wallet data.
+It does not store balances, keys, or vault tokens.
+Forget connection clears this flag. Revoke site permissions in the extension if needed.
+A locked extension or revoked permission can still require user action.
 The extension reports `signet` for Mutinynet, so the network label alone cannot distinguish it from standard Signet.
 Check the extension settings before any transfer.
 
@@ -43,6 +48,7 @@ npm run build --prefix frontend
 node --test *.test.mjs
 ```
 
-The three wallet tests and all 35 existing integration tests passed.
+The five wallet tests passed, including connection restoration after reload and failed restoration.
+All 35 existing integration tests passed during the frontend integration.
 Type checking and the production build passed. Chrome displayed the Wallet route and its connection button.
 This step did not approve a new extension connection or send funds.

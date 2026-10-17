@@ -25,3 +25,15 @@ export async function readWallet(provider?: RgbProvider) {
   const usdt=matches.length ? formatAtomic(matches[0].balance?.available,6) : null;
   return {network:info.network,protocol:info.protocol,usdt};
 }
+
+export function createWalletSession(storage: Pick<Storage,'getItem'|'setItem'|'removeItem'>) {
+  const key='goal-digger-rgb-connection';
+  const remembered=()=>{try{return storage.getItem(key)==='connected';}catch{return false;}};
+  const connect=async(provider?:RgbProvider)=>{
+    const wallet=await readWallet(provider);
+    try{storage.setItem(key,'connected');}catch{/* A blocked storage API must not prevent a wallet read. */}
+    return wallet;
+  };
+  return {connect,remembered,restore:(provider?:RgbProvider)=>remembered()?connect(provider):Promise.resolve(null),
+    forget:()=>{try{storage.removeItem(key);}catch{/* Storage can be disabled by the browser. */}}};
+}

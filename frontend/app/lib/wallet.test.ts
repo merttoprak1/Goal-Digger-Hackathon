@@ -24,3 +24,34 @@ test('missing, locked, wrong-protocol, and failed providers never show a zero ba
   await assert.rejects(readWallet({...provider,getInfo:async()=>({ready:true,network:'signet',protocol:'RGB_LN'})}));
   await assert.rejects(readWallet({...provider,getInfo:async()=>({ready:true,network:'signet',protocol:'RGB_L1'}),listAssets:async()=>{throw Error('offline')}}));
 });
+
+test('a new page session restores a remembered connection with a fresh wallet read', async () => {
+  const { createWalletSession } = await import('./wallet.ts');
+  const values=new Map<string,string>();
+  const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);},removeItem:(key:string)=>{values.delete(key);}};
+  let amount=100000000;
+  let enables=0;
+  const provider={enable:async()=>{enables++;},getInfo:async()=>({ready:true,network:'signet',protocol:'RGB_L1'}),listAssets:async()=>[{id:assetId,precision:6,balance:{available:amount}}]};
+  const first=createWalletSession(storage);
+  assert.equal(await first.restore(provider),null);
+  assert.equal(enables,0);
+  assert.equal((await first.connect(provider)).usdt,'100');
+  amount=99000000;
+  const reloaded=createWalletSession(storage);
+  assert.equal((await reloaded.restore(provider))?.usdt,'99');
+  assert.equal(enables,2);
+  assert.deepEqual([...values.values()],['connected']);
+  reloaded.forget();
+  assert.equal(await createWalletSession(storage).restore(provider),null);
+});
+
+test('a rejected connection is not remembered and a failed restore never returns an old balance', async () => {
+  const { createWalletSession } = await import('./wallet.ts');
+  const values=new Map<string,string>();
+  const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);},removeItem:(key:string)=>{values.delete(key);}};
+  const session=createWalletSession(storage);
+  await assert.rejects(session.connect({enable:async()=>{throw Error('denied');},getInfo:async()=>{throw Error();},listAssets:async()=>[]}));
+  assert.equal(values.size,0);
+  await session.connect({enable:async()=>{},getInfo:async()=>({ready:true,network:'signet',protocol:'RGB_L1'}),listAssets:async()=>[]});
+  await assert.rejects(createWalletSession(storage).restore(undefined));
+});
