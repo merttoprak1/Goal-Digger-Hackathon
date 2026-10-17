@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/challenges";
+import { askGoaly } from "~/lib/goaly";
 import { fetchChallengesSnapshot } from "~/lib/api";
 import { POOL_TONE, proofHint, STATUS_BADGE } from "~/lib/challenge-view";
 import type {
@@ -296,9 +297,9 @@ function ArbiterPanel({
     speak(3000);
   }
 
-  function propose() {
+  async function propose() {
     const goal = draft.trim();
-    if (!goal) return;
+    if (!goal || working) return;
 
     setMessages((current) => [
       ...current,
@@ -308,14 +309,9 @@ function ArbiterPanel({
     setWorking(true);
     speak();
 
-    schedule(() => {
-      const quote =
-        arbiter.replyQuotes[
-          Math.floor(Math.random() * arbiter.replyQuotes.length)
-        ];
-      say(quote);
-      setWorking(false);
-    }, 750);
+    try { say(await askGoaly(goal)); }
+    catch(e) { say(e instanceof Error ? e.message : 'Goaly is unavailable. Try again.'); }
+    finally { setWorking(false);setSpeaking(false); }
   }
 
   return (
@@ -455,6 +451,7 @@ function ArbiterPanel({
             <button
               type="button"
               onClick={propose}
+              disabled={working}
               className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
             >
               <span>Propose</span>

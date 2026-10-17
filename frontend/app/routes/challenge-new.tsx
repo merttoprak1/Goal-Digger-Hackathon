@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 
 import type { Route } from "./+types/challenge-new";
 import { Icon } from "~/components/icon";
+import { askGoaly } from "~/lib/goaly";
 import { createChallenge } from "~/lib/api";
 
 export function meta({}: Route.MetaArgs) {
@@ -76,17 +77,11 @@ const QUICK_PROMPTS = [
 
 const QUICK_STAKES = ["1", "5", "10", "25"];
 
-const GOALY_REPLIES = [
-  "Locked in. I've mapped your milestone to the Apple Health oracle and set the daily quota. Adjust the horizon on the right if you need more room.",
-  "Solid target. The proof feed is connected and the escrow terms are drafted — deploy whenever you're ready to put USDT behind it.",
-  "Noted, challenger. I'll attest the oracle feed and rule on the outcome myself. No excuses, no manual disputes.",
-];
-
 const GREETING: ChatMessage[] = [
   {
     id: 1,
     from: "goaly",
-    text: "Hey! I'm Goaly, your automated arbiter. What goal or discipline challenge are we locking into Bitcoin escrow today?",
+    text: "I am Goaly, your local challenge planning assistant. Describe a measurable goal and how you will prove it.",
     detail:
       '💡 Examples: "Run 10km under 60 mins" • "100 pushups daily" • "Skip 5 GitHub commits"',
   },
@@ -217,6 +212,7 @@ export default function ChallengeNew() {
   const [pending, setPending] = useState<"idle" | "draft" | "deploy">("idle");
   const [error, setError] = useState<string | null>(null);
 
+  const [chatBusy,setChatBusy]=useState(false);
   const nextId = useRef(GREETING.length + 1);
   const timers = useRef<number[]>([]);
 
@@ -225,30 +221,17 @@ export default function ChallengeNew() {
     return () => pending.forEach((id) => window.clearTimeout(id));
   }, []);
 
-  function send(raw: string) {
-    const text = raw.trim();
-    if (!text) return;
-
-    setInput("");
-    setMessages((current) => [
-      ...current,
-      { id: nextId.current++, from: "user", text },
-    ]);
-
-    const timer = window.setTimeout(() => {
-      setMessages((current) => [
-        ...current,
-        {
-          id: nextId.current++,
-          from: "goaly",
-          text: GOALY_REPLIES[
-            Math.floor(Math.random() * GOALY_REPLIES.length)
-          ],
-          oracle: `${horizonDays} consecutive days • auto-attested daily`,
-        },
-      ]);
-    }, 600);
-    timers.current.push(timer);
+  async function send(raw: string) {
+    const text=raw.trim();
+    if(!text || chatBusy)return;
+    setInput('');setChatBusy(true);
+    setMessages(current=>[...current,{id:nextId.current++,from:'user',text}]);
+    try {
+      const reply=await askGoaly(text);
+      setMessages(current=>[...current,{id:nextId.current++,from:'goaly',text:reply}]);
+    } catch(e) {
+      setMessages(current=>[...current,{id:nextId.current++,from:'goaly',text:e instanceof Error?e.message:'Goaly is unavailable. Try again.'}]);
+    } finally {setChatBusy(false);}
   }
 
   const goalText =
@@ -389,14 +372,14 @@ export default function ChallengeNew() {
                     send(input);
                   }
                 }}
-                placeholder="Describe your challenge…"
+                placeholder={chatBusy?"Goaly is thinking…":"Describe your challenge…"}
                 className="min-w-0 flex-1 border-0 bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
               />
               <Icon name="mic" className="text-[18px] text-slate-400" />
               <button
                 type="button"
                 onClick={() => send(input)}
-                disabled={!input.trim()}
+                disabled={!input.trim() || chatBusy}
                 title="Send to Goaly"
                 className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full bg-indigo-600 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
               >

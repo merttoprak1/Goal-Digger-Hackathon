@@ -36,20 +36,10 @@ export const ARBITER: ArbiterProfile = {
   role: "Chief Arbiter",
   agent: "QVAC Agent",
   level: "Lv. 9",
-  accuracy: "98% Accuracy",
-  statusText: "Goaly is supervising the chain...",
-  greeting: [
-    "Yo! Ready to put your USDT where your mouth is? Name your challenge and stake, or pick a preset below. No slackers allowed on Mutinynet!",
-    "Hey! Stop poking the Arbiter and go finish your challenges!",
-    "Microphone & Oracle feed calibrated. All systems active!",
-  ],
-  replyQuotes: [
-    "Contract terms noted! Locking your timelock on Mutinynet. Don't disappoint the arbiter!",
-    "I will be personally validating the oracle feed. If you fail, the counterparty takes the pool!",
-    "DLC terms registered on Bitcoin testnet. You've got the guts, now bring the proof!",
-    "Stake accepted. The blockchain never lies, and neither do I. Get to work!",
-    "Target locked in my crosshairs. Submit your cryptographic proof before the deadline!",
-  ],
+  accuracy: "Planning advice",
+  statusText: "Local QVAC replies",
+  greeting: ["I am Goaly. Describe your goal, deadline, and proof source. I can help plan the challenge, but cannot move funds."],
+  replyQuotes: [],
 };
 
 /** Mascot click / audio-toggle lines, matching the source design's behaviour. */

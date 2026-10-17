@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { goalyMessages } from './goaly.mjs';
 import { assessmentFormat, assessmentMessages, assessAnswer } from './assessment.mjs';
 import { getRgbWallet } from './rgb-wallet.mjs';
 
@@ -55,10 +56,10 @@ async function readText(request, field) {
   return body[field].trim();
 }
 
-async function askQvac(messages, responseFormat) {
+export async function askQvac(messages, responseFormat, fetchService = fetch) {
   let upstream;
   try {
-    upstream = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
+    upstream = await fetchService('http://127.0.0.1:11434/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(30_000),
@@ -106,7 +107,7 @@ export const server = createServer({ requestTimeout: 10_000 }, async (request, r
     }
     return;
   }
-  if (path === '/qvac/ask' || path === '/qvac/assess') {
+  if (path === '/qvac/ask' || path === '/qvac/assess' || path === '/qvac/chat') {
     if (request.method !== 'POST') {
       response.setHeader('Allow', 'POST');
       response.writeHead(405).end(JSON.stringify({ error: 'Use POST for this endpoint.' }));
@@ -121,7 +122,7 @@ export const server = createServer({ requestTimeout: 10_000 }, async (request, r
         catch { throw requestError(502, 'QVAC returned an invalid assessment.'); }
       } else {
         const prompt = await readText(request, 'prompt');
-        result = await askQvac([{ role: 'user', content: prompt }]);
+        result = await askQvac(path === '/qvac/chat' ? goalyMessages(prompt) : [{ role: 'user', content: prompt }]);
       }
       response.writeHead(200).end(JSON.stringify(result));
     } catch (error) {
