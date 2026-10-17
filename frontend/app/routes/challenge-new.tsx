@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 
 import type { Route } from "./+types/challenge-new";
 import { MessageIn, TypingBubble } from "~/components/chat";
+import { CountUp } from "~/components/count-up";
 import { Icon } from "~/components/icon";
 import { createChallenge } from "~/lib/api";
 import { EASE } from "~/lib/motion";
@@ -890,7 +891,11 @@ export default function ChallengeNew() {
                   {visibility === "solo" ? "Solo XP" : "Public Pool"})
                 </span>
                 <span className="font-mono font-bold text-indigo-600">
-                  +{xp.toLocaleString("en-US")} XP = Habit Streak
+                  +<CountUp
+                    text={xp.toLocaleString("en-US")}
+                    duration={0.45}
+                  />{" "}
+                  XP = Habit Streak
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">

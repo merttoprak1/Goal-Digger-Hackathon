@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 
 import type { Route } from "./+types/profile";
 import { Avatar } from "~/components/avatar";
+import { CountUp } from "~/components/count-up";
 import { Icon } from "~/components/icon";
 import { fetchProfileSnapshot } from "~/lib/api";
 import type {
@@ -148,7 +149,7 @@ function StatCard({ stat, index }: { stat: ProfileStat; index: number }) {
       </div>
       <div className="mt-4 flex items-baseline gap-1.5">
         <span className="text-3xl font-extrabold tracking-tight text-slate-900">
-          {stat.value}
+          <CountUp text={stat.value} delay={index * 0.07} />
         </span>
         {stat.unit ? (
           <span className="text-sm font-semibold text-slate-500">
@@ -395,14 +396,14 @@ function BalanceCard({ balance }: { balance: WalletBalance }) {
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-slate-500">Available USDT</span>
           <span className="font-mono font-bold text-slate-900">
-            {balance.usdt}{" "}
+            <CountUp text={balance.usdt} delay={0.1} />{" "}
             <span className="text-xs font-semibold text-slate-400">USDT</span>
           </span>
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-slate-500">Lightning tBTC</span>
           <span className="font-mono font-bold text-slate-900">
-            {balance.tbtc}{" "}
+            <CountUp text={balance.tbtc} delay={0.16} />{" "}
             <span className="text-xs font-semibold text-slate-400">tBTC</span>
           </span>
         </div>
