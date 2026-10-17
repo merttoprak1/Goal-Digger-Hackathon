@@ -35,6 +35,7 @@ const NAV = [
   { to: "/challenges/new", label: "Create Challenge" },
   { to: "/profile", label: "Profile" },
   { to: "/wallet", label: "Wallet" },
+  { to: "/payouts", label: "Payouts" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -114,7 +115,7 @@ function AppHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 px-6 py-3.5 backdrop-blur-md lg:px-12">
       <div className="mx-auto max-w-7xl">
-        <div className="flex items-center justify-between gap-4 md:grid md:grid-cols-[1fr_auto_1fr]">
+        <div className="flex items-center justify-between gap-4 lg:grid lg:grid-cols-[1fr_auto_1fr]">
           <Link
             to="/challenges"
             className="group flex items-center gap-3 transition"
@@ -131,7 +132,7 @@ function AppHeader() {
             </span>
           </Link>
 
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <NavLinks orientation="row" />
           </div>
 
@@ -157,7 +158,7 @@ function AppHeader() {
           </div>
         </div>
 
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <NavLinks orientation="scroll" />
         </div>
       </div>
@@ -202,7 +203,7 @@ export default function App() {
   return (
     <>
       <AppHeader />
-      <p className="bg-amber-50 px-6 py-2 text-center text-sm text-amber-900">Challenge screens use demo data. The Wallet screen reads your extension.</p>
+      <p className="bg-amber-50 px-6 py-2 text-center text-sm text-amber-900">The challenge board uses demo data. Wallet and Payouts use live local services.</p>
       <Outlet />
       <AppFooter />
     </>
