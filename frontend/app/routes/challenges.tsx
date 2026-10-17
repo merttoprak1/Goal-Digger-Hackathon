@@ -354,9 +354,6 @@ function ArbiterPanel({
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-          <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-700">
-            {arbiter.level}
-          </span>
           <span className="rounded-md border border-violet-100 bg-violet-50 px-2 py-0.5 text-violet-700">
             {arbiter.accuracy}
           </span>
