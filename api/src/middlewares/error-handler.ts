@@ -24,8 +24,20 @@ export function errorHandler(
     return;
   }
 
-  if (typeof err === 'object' && err !== null && 'type' in err && err.type === 'entity.too.large') {
-    res.status(413).json({error:{code:'BODY_TOO_LARGE',message:'The request body must not exceed 4 KB.'}});
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "type" in err &&
+    err.type === "entity.too.large"
+  ) {
+    res
+      .status(413)
+      .json({
+        error: {
+          code: "BODY_TOO_LARGE",
+          message: "The request body must not exceed 4 KB.",
+        },
+      });
     return;
   }
   // Malformed JSON body from express.json()

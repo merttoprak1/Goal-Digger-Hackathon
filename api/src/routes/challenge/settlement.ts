@@ -1,0 +1,124 @@
+import type { Router } from "express";
+import { z } from "zod";
+import { ApiError } from "../../middlewares/error-handler.js";
+import {
+  participantId,
+  requireConfiguredVault,
+  requirePublished,
+  requireStrictEmpty,
+  type ChallengeContext,
+} from "./context.js";
+
+const invoiceBody = z
+  .object({ invoice: z.string().startsWith("rgb:").min(5).max(3000) })
+  .strict();
+
+export function registerSettlementRoutes(router: Router, context: ChallengeContext): void {
+  const { store } = context;
+
+  router.post("/:id/finalize", (req, res) => {
+    const id = String(req.params.id);
+    requirePublished(store, id);
+    requireStrictEmpty(req.body, "Send an empty JSON object.", "INVALID_OUTCOME");
+    res.json({ outcome: store.finalizeOutcome(id) });
+  });
+
+  router.get("/:id/outcome", (req, res) => {
+    const id = String(req.params.id);
+    requirePublished(store, id);
+    res.json({ outcome: store.getOutcome(id) });
+  });
+
+  router.post("/:id/close-betting", (req, res) => {
+    const id = String(req.params.id);
+    requirePublished(store, id);
+    requireStrictEmpty(req.body, "Send an empty JSON object.", "INVALID_SNAPSHOT");
+    res.json({ snapshot: store.closeBetting(id) });
+  });
+
+  router.get("/:id/betting-snapshot", (req, res) => {
+    const id = String(req.params.id);
+    requirePublished(store, id);
+    res.json({ snapshot: store.getBettingSnapshot(id) });
+  });
+
+  router.post("/:id/payout-plan", (req, res) => {
+    const id = String(req.params.id);
+    requirePublished(store, id);
+    requireStrictEmpty(req.body, "Send an empty JSON object.", "INVALID_PAYOUT_PLAN");
+    res.json({ plan: store.createPayoutPlan(id) });
+  });
+
+  router.get("/:id/payout-plan", (req, res) => {
+    const id = String(req.params.id);
+    requirePublished(store, id);
+    res.json({ plan: store.getPayoutPlan(id) });
+  });
+
+  router.post("/:id/payout-request", async (req, res) => {
+    const id = String(req.params.id);
+    const ownerId = participantId(res);
+    requirePublished(store, id);
+    const parsed = invoiceBody.safeParse(req.body);
+    if (!parsed.success) {
+      throw new ApiError(400, "Send only the RGB receive invoice.", "INVALID_INVOICE");
+    }
+    const award = store.awardAllocation(id, ownerId);
+    let claim = store.getAwardClaim(id, ownerId);
+    if (claim && claim.invoice !== parsed.data.invoice) {
+      throw new ApiError(409, "This award already has a different invoice.", "AWARD_BOUND");
+    }
+    if (claim?.payout) {
+      res.json({ claim });
+      return;
+    }
+    const payoutVault = requireConfiguredVault(context.payoutVault);
+    if (!claim) {
+      const validation = await payoutVault.validate(
+        parsed.data.invoice,
+        award.amountAtomic,
+        award.assetId,
+      );
+      claim = store.bindAward(id, ownerId, parsed.data.invoice, validation);
+    }
+    const payout = await payoutVault.prepare(
+      {
+        payoutId: claim.payoutId,
+        challengeId: id,
+        participantId: ownerId,
+        amountAtomic: claim.amountAtomic,
+        invoice: claim.invoice,
+      },
+      claim.validation,
+    );
+    res.json({ claim: store.completeAward(id, ownerId, payout) });
+  });
+
+  router.get("/:id/payout-request", (req, res) => {
+    const id = String(req.params.id);
+    requirePublished(store, id);
+    res.json({ claim: store.getAwardClaim(id, participantId(res)) });
+  });
+
+  router.post("/:id/payout-execution", async (req, res) => {
+    const id = String(req.params.id);
+    const ownerId = participantId(res);
+    requirePublished(store, id);
+    requireStrictEmpty(req.body, "Send an empty JSON object.", "INVALID_EXECUTION");
+    const payoutVault = requireConfiguredVault(context.payoutVault);
+    const attempt = store.beginAwardExecution(id, ownerId);
+    if (attempt.execution.status === "accepted") {
+      res.json({ execution: attempt.execution });
+      return;
+    }
+    const receipt = await payoutVault.execute(attempt.claim.payout!);
+    const execution = store.completeAwardExecution(id, ownerId, receipt);
+    res.status(execution.status === "accepted" ? 200 : 409).json({ execution });
+  });
+
+  router.get("/:id/payout-execution", (req, res) => {
+    const id = String(req.params.id);
+    requirePublished(store, id);
+    res.json({ execution: store.getAwardExecution(id, participantId(res)) });
+  });
+}
