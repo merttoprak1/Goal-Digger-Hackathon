@@ -26,6 +26,19 @@ export function mathProofs(db: DatabaseSync, now: () => number) {
         ? { answer: String(row.submitted_answer), proof: receipt(row) }
         : null;
     },
+    getMathProblem(challengeId: string, problemId: string) {
+      const row = db
+        .prepare(
+          "SELECT id,left_value,right_value,result FROM math_problems WHERE challenge_id=? AND id=?",
+        )
+        .get(challengeId, problemId);
+      if (!row || row.result) return null;
+      return {
+        id: String(row.id),
+        left: Number(row.left_value),
+        right: Number(row.right_value),
+      };
+    },
     createMathProblem(challengeId: string) {
       db.prepare(
         "INSERT OR IGNORE INTO math_problems(id,challenge_id,left_value,right_value,created_at) VALUES(?,?,?,?,?)",
@@ -47,7 +60,12 @@ export function mathProofs(db: DatabaseSync, now: () => number) {
         createdAt: String(row.created_at),
       };
     },
-    submitMath(challengeId: string, problemId: string, answer: string) {
+    submitMath(
+      challengeId: string,
+      problemId: string,
+      answer: string,
+      agentReview: { verdict: "accepted" | "rejected"; reason: string; reviewer: "local-qvac" },
+    ) {
       db.exec("BEGIN IMMEDIATE");
       try {
         const row = db
@@ -88,14 +106,22 @@ export function mathProofs(db: DatabaseSync, now: () => number) {
           throw new ApiError(409, "The proof window is not open.", "PROOF_WINDOW_CLOSED");
         const accepted =
           Number(answer) === Number(row.left_value) + Number(row.right_value);
+        if (agentReview.verdict !== (accepted ? "accepted" : "rejected")) {
+          throw new ApiError(
+            502,
+            "The local agent and server checks disagreed. No proof was recorded.",
+            "PROOF_REVIEW_MISMATCH",
+          );
+        }
         const proof = {
           problemId,
           answer,
           status: accepted ? "accepted" : "rejected",
           submittedAt: new Date(submittedAt).toISOString(),
           reason: accepted
-            ? "Correct answer received during the proof window."
-            : "The answer is incorrect. Request a fresh problem before the deadline.",
+            ? "The local agent read the submitted answer, and the server verified it against the timed math problem."
+            : "The local agent read the submitted answer, and the server found it incorrect. Request a fresh problem before the deadline.",
+          agentReview,
         };
         db.prepare("UPDATE math_problems SET submitted_answer=?,result=? WHERE id=?").run(
           answer,

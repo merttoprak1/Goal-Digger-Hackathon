@@ -9,6 +9,8 @@ const schema = z.object({
     .min(1)
     .default(fileURLToPath(new URL("../../data/api.sqlite", import.meta.url))),
   VAULT_API_TOKEN: z.string().min(1).optional(),
+  QVAC_ASSESS_URL: z.string().url().default("http://127.0.0.1:4000/qvac/assess"),
+  QVAC_REVIEW_URL: z.string().url().default("http://127.0.0.1:4000/qvac/review"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   // NOTE: when RGB/Bitcoin integration lands, add an explicit network setting here,
   // e.g. BTC_NETWORK: z.enum(["regtest", "signet", "testnet", "mainnet"])

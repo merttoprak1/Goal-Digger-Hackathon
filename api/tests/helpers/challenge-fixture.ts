@@ -117,7 +117,16 @@ export async function setup(template = "wake_up", creatorStakeAtomic = "5000000"
       ...(control.mismatch ? { amountAtomic: "1" } : {}),
     });
   });
-  const app = createApp({ databasePath, stakeDeposits: stakes, payoutVault });
+  const proofReviewer = async (input: { evidence: string; expectedAnswer: number }) => {
+    const match = input.evidence.match(/-?\d+/);
+    const answer = match ? Number(match[0]) : Number.NaN;
+    return {
+      verdict: answer === input.expectedAnswer ? "accepted" as const : "rejected" as const,
+      reason: "Test reviewer assessment.",
+      reviewer: "local-qvac" as const,
+    };
+  };
+  const app = createApp({ databasePath, stakeDeposits: stakes, payoutVault, proofReviewer });
   cleanup.push(() => app.locals.close());
   const a = (await request(app).post("/api/sessions").send({ displayName: "Mert" })).body;
   const b = (await request(app).post("/api/sessions").send({ displayName: "Ege" })).body;

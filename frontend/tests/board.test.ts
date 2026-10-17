@@ -30,6 +30,28 @@ test("maps a live challenge to stake and eligible pool amounts", () => {
   assert.equal(toBoardChallenge({ ...live, eligiblePoolAtomic: "0" }).poolUsdt, null);
 });
 
+test("submits custom proof and returns Goaly's structured review", async () => {
+  const client = createBoardClient({
+    fetchService: async () => Response.json({
+      saved: true,
+      review: {
+        verdict: "accepted",
+        reason: "The evidence supports the stated goal.",
+        reviewer: "local-qvac",
+      },
+    }),
+  });
+  const result = await client.saveProof(token, live.id, "I completed the stated goal.");
+  assert.deepEqual(result, {
+    saved: true,
+    review: {
+      verdict: "accepted",
+      reason: "The evidence supports the stated goal.",
+      reviewer: "local-qvac",
+    },
+  });
+});
+
 test("lists challenges with the participant token and never sends a body", async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const client = createBoardClient({

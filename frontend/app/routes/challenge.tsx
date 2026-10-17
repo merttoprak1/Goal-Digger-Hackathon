@@ -251,8 +251,12 @@ function PrizeShares({
     setBusy(true);
     setError("");
     try {
-      await client.saveProof(token, challengeId, statement.trim());
-      setNote("The proof statement is saved. Settle the prize after the deadline.");
+      const result = await client.saveProof(token, challengeId, statement.trim());
+      setNote(
+        result.review.verdict === "accepted"
+          ? `Goaly accepted this proof: ${result.review.reason} The challenge is not settled yet.`
+          : `Goaly rejected this proof: ${result.review.reason} You can submit clearer evidence before the deadline.`,
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The request failed.");
     } finally {
@@ -358,7 +362,7 @@ function PrizeShares({
           </button>
         </label>
       ) : null}
-      {note ? <p className="mt-3 text-sm text-slate-600">{note}</p> : null}
+      {note ? <p role="status" className="mt-3 text-sm text-slate-600">{note}</p> : null}
       {error ? (
         <p role="alert" className="mt-3 text-sm text-rose-800">
           {error}

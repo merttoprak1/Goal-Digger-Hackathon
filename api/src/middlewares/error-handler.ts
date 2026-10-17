@@ -13,7 +13,7 @@ export class ApiError extends Error {
 
 export function errorHandler(
   err: unknown,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction,
 ) {
@@ -35,7 +35,9 @@ export function errorHandler(
       .json({
         error: {
           code: "BODY_TOO_LARGE",
-          message: "The request body must not exceed 4 KB.",
+          message: req.path.endsWith("/proof-note")
+            ? "The proof statement request body must not exceed 16 KB."
+            : "The request body must not exceed 4 KB.",
         },
       });
     return;

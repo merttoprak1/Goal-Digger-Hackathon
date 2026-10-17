@@ -1,6 +1,16 @@
 import { createServer } from "node:http";
 import { goalyMessages } from "./goaly.mjs";
-import { assessmentFormat, assessmentMessages, assessAnswer } from "./assessment.mjs";
+import {
+  assessmentFormat,
+  assessmentMessages,
+  assessmentRule,
+  assessAnswer,
+  proofReviewFormat,
+  proofReviewMessages,
+  assessProof,
+  parseProofReviewRequest,
+  proofReviewBodyLimit,
+} from "./assessment.mjs";
 import { getRgbWallet } from "./rgb-wallet.mjs";
 
 export async function getHealth(fetchService = fetch) {
@@ -75,6 +85,88 @@ async function readText(request, field) {
   return body[field].trim();
 }
 
+async function readAssessment(request) {
+  if (
+    request.headers["content-type"]?.split(";")[0].trim().toLowerCase() !==
+    "application/json"
+  ) {
+    throw requestError(415, "Send Content-Type: application/json.");
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request.iterator({ destroyOnReturn: false })) {
+    size += chunk.length;
+    if (size > 4096) {
+      request.resume();
+      throw requestError(413, "The request body must not exceed 4 KB.");
+    }
+    chunks.push(chunk);
+  }
+  let body;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw requestError(400, "Send valid JSON.");
+  }
+  if (!body || Array.isArray(body) || typeof body !== "object")
+    throw requestError(400, "Send valid evidence assessment fields.");
+
+  const keys = Object.keys(body).sort().join(",");
+  if (keys === "evidence") {
+    if (typeof body.evidence !== "string" || !body.evidence.trim() || body.evidence.length > 500)
+      throw requestError(400, "Send evidence containing 1 to 500 characters.");
+    return { evidence: body.evidence.trim(), rule: assessmentRule, expectedAnswer: 25 };
+  }
+  if (
+    keys !== "evidence,expectedAnswer,question" ||
+    typeof body.evidence !== "string" ||
+    !body.evidence.trim() ||
+    body.evidence.length > 500 ||
+    typeof body.question !== "string" ||
+    !body.question.trim() ||
+    body.question.length > 200 ||
+    !Number.isSafeInteger(body.expectedAnswer) ||
+    Math.abs(body.expectedAnswer) > 999999
+  ) {
+    throw requestError(400, "Send evidence, question, and a bounded integer expectedAnswer.");
+  }
+  return {
+    evidence: body.evidence.trim(),
+    rule: { id: "challenge-timed-math-v1", question: body.question.trim() },
+    expectedAnswer: body.expectedAnswer,
+  };
+}
+
+async function readProofReview(request) {
+  if (
+    request.headers["content-type"]?.split(";")[0].trim().toLowerCase() !==
+    "application/json"
+  ) {
+    throw requestError(415, "Send Content-Type: application/json.");
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request.iterator({ destroyOnReturn: false })) {
+    size += chunk.length;
+    if (size > proofReviewBodyLimit) {
+      request.resume();
+      throw requestError(413, "The proof-review request body must not exceed 16 KB.");
+    }
+    chunks.push(chunk);
+  }
+  let body;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw requestError(400, "Send valid JSON.");
+  }
+  try {
+    return parseProofReviewRequest(body);
+  } catch (error) {
+    throw requestError(400, error.message);
+  }
+}
+
 export async function askQvac(messages, responseFormat, fetchService = fetch) {
   let upstream;
   try {
@@ -85,7 +177,7 @@ export async function askQvac(messages, responseFormat, fetchService = fetch) {
       body: JSON.stringify({
         model: "goal-digger",
         messages,
-        max_tokens: 128,
+        max_tokens: 256,
         temperature: 0,
         reasoning_budget: false,
         ...(responseFormat ? { response_format: responseFormat } : {}),
@@ -133,7 +225,7 @@ export const server = createServer(
       }
       return;
     }
-    if (path === "/qvac/ask" || path === "/qvac/assess" || path === "/qvac/chat") {
+    if (path === "/qvac/ask" || path === "/qvac/assess" || path === "/qvac/review" || path === "/qvac/chat") {
       if (request.method !== "POST") {
         response.setHeader("Allow", "POST");
         response
@@ -144,15 +236,29 @@ export const server = createServer(
       try {
         let result;
         if (path === "/qvac/assess") {
-          const evidence = await readText(request, "evidence");
+          const { evidence, rule, expectedAnswer } = await readAssessment(request);
           const completion = await askQvac(
-            assessmentMessages(evidence),
+            assessmentMessages(evidence, rule.question),
             assessmentFormat,
           );
           try {
-            result = assessAnswer(completion.answer, evidence);
+            result = assessAnswer(completion.answer, evidence, {
+              ...rule,
+              expectedAnswer,
+            });
           } catch {
             throw requestError(502, "QVAC returned an invalid assessment.");
+          }
+        } else if (path === "/qvac/review") {
+          const review = await readProofReview(request);
+          const completion = await askQvac(
+            proofReviewMessages(review),
+            proofReviewFormat,
+          );
+          try {
+            result = assessProof(completion.answer, review);
+          } catch {
+            throw requestError(502, "QVAC returned an invalid proof assessment.");
           }
         } else {
           const prompt = await readText(request, "prompt");

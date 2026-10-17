@@ -15,7 +15,7 @@ const answerBody = z
   })
   .strict();
 
-export function registerProofRoutes(router: Router, { store }: ChallengeContext): void {
+export function registerProofRoutes(router: Router, { store, proofReviewer }: ChallengeContext): void {
   router.post("/:id/math/problem", (req, res) => {
     const challenge = ownedMathChallenge(store, participantId(res), String(req.params.id));
     requireEmptyBody(req.body, "Send an empty JSON object.", "INVALID_PROBLEM");
@@ -27,7 +27,7 @@ export function registerProofRoutes(router: Router, { store }: ChallengeContext)
     res.json({ problem: { ...problem, expiresAt: challenge.proofDeadline } });
   });
 
-  router.post("/:id/math/submit", (req, res) => {
+  router.post("/:id/math/submit", async (req, res) => {
     const challenge = ownedMathChallenge(store, participantId(res), String(req.params.id));
     const parsed = answerBody.safeParse(req.body);
     if (!parsed.success) {
@@ -42,8 +42,31 @@ export function registerProofRoutes(router: Router, { store }: ChallengeContext)
       return;
     }
     requireOpenProofWindow(store, challenge);
+    const problem = store.getMathProblem(challenge.id, parsed.data.problemId);
+    if (!problem) throw new ApiError(404, "Problem not found or already submitted.", "NOT_FOUND");
+    const agentReview = await proofReviewer({
+      question: `${problem.left} + ${problem.right}`,
+      evidence: `Submitted answer: ${parsed.data.answer}.`,
+      expectedAnswer: problem.left + problem.right,
+    });
+    if (agentReview.verdict === "unclear") {
+      throw new ApiError(
+        422,
+        "The local proof reviewer could not read one clear answer. You can resubmit a clear answer to the same problem.",
+        "PROOF_REVIEW_UNCLEAR",
+      );
+    }
+    const mathReview = {
+      ...agentReview,
+      verdict: agentReview.verdict === "accepted" ? "accepted" as const : "rejected" as const,
+    };
     res.json({
-      proof: store.submitMath(challenge.id, parsed.data.problemId, parsed.data.answer),
+      proof: store.submitMath(
+        challenge.id,
+        parsed.data.problemId,
+        parsed.data.answer,
+        mathReview,
+      ),
     });
   });
 

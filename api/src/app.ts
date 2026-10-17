@@ -9,15 +9,18 @@ import { env } from "./config/env.js";
 import { ApiError, errorHandler } from "./middlewares/error-handler.js";
 import { requestId } from "./middlewares/request-id.js";
 import { routes } from "./routes/index.js";
+import { localProofReviewer } from "./services/local-proof-reviewer.js";
 
 export function createApp({
   databasePath = env.DATABASE_PATH,
   stakeDeposits,
   payoutVault,
+  proofReviewer,
 }: {
   databasePath?: string;
   stakeDeposits?: StakeDeposits;
   payoutVault?: ReturnType<typeof vaultPayouts>;
+  proofReviewer?: ReturnType<typeof localProofReviewer>;
 } = {}) {
   const app = express();
 
@@ -38,6 +41,10 @@ export function createApp({
     res.setHeader("Cache-Control", "no-store");
     next();
   });
+  app.use(
+    "/api/challenges/:id/proof-note",
+    express.json({ limit: "16kb" }),
+  );
   app.use(express.json({ limit: "4kb" }));
   app.use(requestId);
   if (env.NODE_ENV !== "test") {
@@ -52,6 +59,8 @@ export function createApp({
       stakes,
       payoutVault ??
         (env.VAULT_API_TOKEN ? vaultPayouts(env.VAULT_API_TOKEN) : undefined),
+      proofReviewer ??
+        localProofReviewer({ url: env.QVAC_ASSESS_URL, reviewUrl: env.QVAC_REVIEW_URL }),
     ),
   );
   app.use("/api", routes);

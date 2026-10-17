@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createApp } from "../src/app.js";
 import { openStakeDeposits } from "../../vault/stake-deposits.mjs";
+import { ApiError } from "../src/middlewares/error-handler.js";
 const cleanup: Array<() => void> = [];
 afterEach(() => {
   vi.useRealTimers();
@@ -16,6 +17,7 @@ async function setup(template = "wake_up") {
   const databasePath = join(dir, "api.sqlite");
   const invoices = new Map<string, Record<string, unknown>>();
   let settled = true;
+  let onCustomReview: (() => void) | null = null;
   const stakes = openStakeDeposits({
     databasePath,
     token: "secret",
@@ -40,7 +42,25 @@ async function setup(template = "wake_up") {
     },
   });
   cleanup.push(() => stakes.close());
-  const app = createApp({ databasePath, stakeDeposits: stakes });
+  let customVerdict: "accepted" | "rejected" | "unclear" = "accepted";
+  let reviewerError: ApiError | null = null;
+  const app = createApp({
+    databasePath,
+    stakeDeposits: stakes,
+    proofReviewer: async (input) => {
+      if (reviewerError) throw reviewerError;
+      if ("proofMethod" in input) onCustomReview?.();
+      return {
+        verdict: "proofMethod" in input
+          ? customVerdict
+          : Number(input.evidence.match(/-?\d+/)?.[0]) === input.expectedAnswer
+            ? "accepted"
+            : "rejected",
+        reason: "Test reviewer assessment.",
+        reviewer: "local-qvac",
+      };
+    },
+  });
   cleanup.push(() => app.locals.close());
   const a = (await request(app).post("/api/sessions").send({ displayName: "Mert" })).body;
   const b = (await request(app).post("/api/sessions").send({ displayName: "Ege" })).body;
@@ -54,7 +74,14 @@ async function setup(template = "wake_up") {
         template,
         title: "Wake up",
         successRule: "Solve the fresh problem",
-        proofMethod: template === "wake_up" ? "timed_math" : "official_result",
+        proofMethod:
+          template === "wake_up"
+            ? "timed_math"
+            : template === "custom"
+              ? "custom"
+              : template === "run"
+                ? "activity_record"
+                : "official_result",
         proofSource: "Server response and timestamp",
         timezone: "Europe/Rome",
         bettingCutoff: new Date(starts - 60000).toISOString(),
@@ -98,6 +125,15 @@ async function setup(template = "wake_up") {
     deadline,
     set: (v: boolean) => {
       settled = v;
+    },
+    setCustomVerdict: (verdict: "accepted" | "rejected" | "unclear") => {
+      customVerdict = verdict;
+    },
+    setReviewerError: (error: ApiError | null) => {
+      reviewerError = error;
+    },
+    setOnCustomReview: (callback: (() => void) | null) => {
+      onCustomReview = callback;
     },
   };
 }
@@ -192,4 +228,83 @@ it("does not decide official results with timed math rules", async () => {
   f.time(f.deadline);
   expect((await f.post("/finalize")).status).toBe(409);
   expect((await f.get("/outcome")).body.outcome).toBeNull();
+
+  const activity = await setup("run");
+  expect((await activity.post("/proof-note", { statement: "I ran today." })).status).toBe(409);
+  activity.time(activity.deadline);
+  expect((await activity.post("/finalize")).status).toBe(409);
+});
+
+it("reviews custom evidence and only accepted proof can produce success", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  const response = await f.post("/proof-note", { statement: "I completed the stated goal." });
+  expect(response.status).toBe(200);
+  expect(response.body).toEqual({
+    saved: true,
+    review: {
+      verdict: "accepted",
+      reason: "Test reviewer assessment.",
+      reviewer: "local-qvac",
+    },
+  });
+  f.time(f.deadline);
+  const result = await f.post("/finalize");
+  expect(result.body.outcome).toMatchObject({ status: "success", proofId: f.base.split("/").at(-1) });
+});
+
+it("stores a rejected custom review but finalizes as failure", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  f.setCustomVerdict("rejected");
+  const response = await f.post("/proof-note", { statement: "This does not prove completion." });
+  expect(response.body.review.verdict).toBe("rejected");
+  f.time(f.deadline);
+  expect((await f.post("/finalize")).body.outcome.status).toBe("failure");
+});
+
+it("does not persist unclear custom evidence and allows a clearer retry", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  f.setCustomVerdict("unclear");
+  const unclear = await f.post("/proof-note", { statement: "Maybe I did it." });
+  expect(unclear.status).toBe(422);
+  expect(unclear.body.error.code).toBe("PROOF_REVIEW_UNCLEAR");
+  f.setCustomVerdict("accepted");
+  const retry = await f.post("/proof-note", { statement: "I completed the stated goal." });
+  expect(retry.status).toBe(200);
+  expect(retry.body.review.verdict).toBe("accepted");
+});
+
+it("does not record custom evidence when Goaly is unavailable", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  f.setReviewerError(new ApiError(503, "QVAC is unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
+  const failed = await f.post("/proof-note", { statement: "I completed the stated goal." });
+  expect(failed.status).toBe(503);
+  expect(failed.body.error.code).toBe("PROOF_REVIEW_UNAVAILABLE");
+  f.setReviewerError(null);
+  expect((await f.post("/proof-note", { statement: "I completed the stated goal." })).status).toBe(200);
+});
+
+it("does not let a slow retry overwrite accepted proof after the deadline", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  expect((await f.post("/proof-note", { statement: "I completed the goal." })).status).toBe(200);
+  f.time(f.deadline - 1);
+  f.setOnCustomReview(() => f.time(f.deadline));
+  const lateReview = await f.post("/proof-note", { statement: "A later replacement statement." });
+  expect(lateReview.status).toBe(409);
+  expect(lateReview.body.error.code).toBe("PROOF_WINDOW_CLOSED");
+  f.setOnCustomReview(null);
+  const outcome = await f.post("/finalize");
+  expect(outcome.body.outcome).toMatchObject({ status: "success", proofId: f.base.split("/").at(-1) });
+});
+
+it("accepts a full-length Unicode written proof within the API request limit", async () => {
+  const f = await setup("custom");
+  const statement = "証".repeat(1000);
+  const response = await f.post("/proof-note", { statement });
+  expect(response.status).toBe(200);
+  expect(response.body.review.verdict).toBe("accepted");
 });

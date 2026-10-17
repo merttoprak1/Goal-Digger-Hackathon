@@ -439,7 +439,14 @@ export function createBoardClient({
       call(
         `/challenges/${encodeURIComponent(id)}/proof-note`,
         token,
-        z.object({ saved: z.boolean() }),
+        z.object({
+          saved: z.boolean(),
+          review: z.object({
+            verdict: z.enum(["accepted", "rejected"]),
+            reason: z.string(),
+            reviewer: z.literal("local-qvac"),
+          }),
+        }),
         { statement },
       ),
     finalize: (token: string, id: string) =>

@@ -14,13 +14,13 @@ const invoiceBody = z
   .strict();
 
 export function registerSettlementRoutes(router: Router, context: ChallengeContext): void {
-  const { store } = context;
+  const { store, proofReviewer } = context;
 
-  router.post("/:id/proof-note", (req, res) => {
+  router.post("/:id/proof-note", async (req, res) => {
     const id = String(req.params.id);
     const challenge = store.getChallenge(participantId(res), id);
     if (!challenge) throw new ApiError(404, "Challenge not found.", "NOT_FOUND");
-    if (challenge.template !== "custom") {
+    if (challenge.template !== "custom" || challenge.proofMethod !== "custom") {
       throw new ApiError(409, "This challenge does not use a written proof.", "WRONG_PROOF_METHOD");
     }
     const parsed = z
@@ -33,8 +33,32 @@ export function registerSettlementRoutes(router: Router, context: ChallengeConte
     if (Date.now() >= Date.parse(challenge.proofDeadline)) {
       throw new ApiError(409, "The proof deadline has passed.", "PROOF_WINDOW_CLOSED");
     }
-    store.saveProofNote(id, parsed.data.statement);
-    res.json({ saved: true });
+    const review = await proofReviewer({
+      challengeId: id,
+      proofMethod: "custom",
+      successRule: challenge.successRule,
+      evidence: parsed.data.statement,
+    });
+    if (Date.now() >= Date.parse(challenge.proofDeadline)) {
+      throw new ApiError(
+        409,
+        "The proof deadline passed before Goaly finished reviewing this evidence. The proof was not saved.",
+        "PROOF_WINDOW_CLOSED",
+      );
+    }
+    if (review.verdict === "unclear") {
+      throw new ApiError(
+        422,
+        "Goaly could not assess this evidence clearly. Submit clearer proof while the proof window is open.",
+        "PROOF_REVIEW_UNCLEAR",
+      );
+    }
+    const recordedReview = {
+      ...review,
+      verdict: review.verdict === "accepted" ? "accepted" as const : "rejected" as const,
+    };
+    store.saveProofNote(id, parsed.data.statement, recordedReview);
+    res.json({ saved: true, review: recordedReview });
   });
 
   router.post("/:id/finalize", (req, res) => {

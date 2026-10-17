@@ -4,14 +4,17 @@ import type { StakeDeposits } from "../../../../vault/stake-deposits.mjs";
 import { ApiError } from "../../middlewares/error-handler.js";
 import type { vaultPayouts } from "../../services/vault-payouts.js";
 import type { openSessions } from "../../store/sessions.js";
+import type { ProofReview, ProofReviewInput } from "../../services/local-proof-reviewer.js";
 
 export type SessionStore = ReturnType<typeof openSessions>;
 export type PayoutVault = ReturnType<typeof vaultPayouts>;
+export type ProofReviewer = (input: ProofReviewInput) => Promise<ProofReview>;
 
 export interface ChallengeContext {
   store: SessionStore;
   stakes?: StakeDeposits;
   payoutVault?: PayoutVault;
+  proofReviewer: ProofReviewer;
 }
 
 export function participantId(res: Response): string {
