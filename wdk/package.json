@@ -1,0 +1,26 @@
+{
+  "name": "goal-digger-wdk-check",
+  "version": "1.0.0",
+  "scripts": {
+    "prepare-native": "node prepare-native.mjs",
+    "check": "bare check.mjs",
+    "receive": "bare check.mjs receive",
+    "refresh": "bare check.mjs refresh",
+    "send-back": "bare check.mjs send-back",
+    "prepare-slots": "bare check.mjs prepare-slots"
+  },
+  "type": "module",
+  "dependencies": {
+    "@tetherto/wdk-wallet": "1.0.0-beta.8",
+    "@utexo/rgb-lib-bare": "0.3.0-beta.18",
+    "@utexo/rgb-sdk-core": "1.0.0-beta.4",
+    "@utexo/wdk-wallet-rgb": "github:UTEXO-Protocol/wdk-wallet-rgb#ead3ae43b76501c435fdb60e320fdeb6d3b59e7e",
+    "bare": "1.35.1",
+    "bare-runtime": "1.35.0",
+    "bare-fs": "4.8.4",
+    "bare-url": "2.5.5",
+    "bare-node-runtime": "1.5.1",
+    "bip39": "3.1.0"
+  },
+  "private": true
+}
