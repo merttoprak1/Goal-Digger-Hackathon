@@ -2,8 +2,8 @@
 
 React Router v7 (framework mode, SPA) + Tailwind CSS v4 + DaisyUI 5 + TypeScript.
 
-This app is the UI and UX layer. It owns the challenge forms, the evidence
-screens, and the pool display. It talks to the API over HTTP.
+This app is the UI and UX layer. It owns the challenge board, the arbiter panel,
+the evidence screens, and the pool display. It talks to the API over HTTP.
 
 > **Owner:** Vesim — React interface, challenge forms, evidence submission, pool display.
 
@@ -24,12 +24,12 @@ Open http://localhost:5173.
 
 ## Scripts
 
-| Script              | What it does                                            |
-| ------------------- | ------------------------------------------------------- |
-| `npm run dev`       | Start the dev server on port 5173                       |
-| `npm run build`     | Production build into `build/client`                    |
-| `npm run start`     | Serve the built SPA on port 4173 (`vite preview`)       |
-| `npm run typecheck` | Generate route types, then run `tsc --noEmit`           |
+| Script              | What it does                                      |
+| ------------------- | ------------------------------------------------- |
+| `npm run dev`       | Start the dev server on port 5173                 |
+| `npm run build`     | Production build into `build/client`              |
+| `npm run start`     | Serve the built SPA on port 4173 (`vite preview`) |
+| `npm run typecheck` | Generate route types, then run `tsc --noEmit`     |
 
 ## SPA mode (important)
 
@@ -47,31 +47,66 @@ Two consequences when writing routes:
 
 See [SPA Mode](https://reactrouter.com/how-to/spa) for details.
 
+## Design
+
+The UI follows the approved **“Goal Digger”** board from the design handoff:
+
+- **Surfaces:** `slate-50` page on white cards, hairline `slate-200` borders,
+  `rounded-2xl` corners, soft `shadow-sm`.
+- **Brand:** `indigo-600` primary, `violet-600` for open pools, `blue-700` for
+  active, `slate` for drafts.
+- **Type:** Plus Jakarta Sans throughout, `font-mono` for all stake and pool
+  numbers.
+- **Layout:** centered hero, then a 12-column grid — challenge cards on the left
+  (`col-span-7`), the Goaly arbiter panel on the right (`col-span-5`).
+
+The arbiter panel is interactive: the mascot reacts when clicked, the preset
+chips and the card action buttons pre-fill the proposal form, and proposing a
+contract appends your message and a simulated arbiter reply.
+
+### Mascot assets
+
+`public/goaly.png` (standing arbiter) and `public/panda-avatar.png` (header logo)
+were trimmed to their content bounding box so they fill their frames and blend
+onto white panels via `mix-blend-multiply`.
+
 ## Project structure
 
 ```
 app/
-  app.css                 Tailwind entry + DaisyUI plugin + themes
-  root.tsx                HTML shell, navbar, footer, error boundary, HydrateFallback
+  app.css                 Tailwind entry, DaisyUI theme, mascot + bubble CSS
+  root.tsx                HTML shell, header, footer, error boundary, HydrateFallback
   routes.ts               Route table
   components/
-    theme-toggle.tsx      Light/dark switch (persisted in localStorage)
+    coming-soon.tsx       Placeholder for screens still to be designed
   lib/
     contracts.ts          API types + zod schema for the create form
     api.ts                API client (mock-aware, throws typed ApiError)
     mock-store.ts         In-memory fake backend with seed data
+    challenge-view.ts     Shared status/pool colour maps for challenge cards
   routes/
-    home.tsx              Landing page
-    challenges.tsx        Challenge list
-    challenge.tsx         Challenge detail (fixed proof terms, timeline)
+    home.tsx              Redirects to /challenges (the design has no landing page)
+    challenges.tsx        The challenge board + Goaly arbiter panel
+    challenge.tsx         Challenge detail
+    challenge-new.tsx     Create challenge (placeholder)
+    proofs.tsx            My Proofs (placeholder)
+    ledger.tsx            Pool Ledger (placeholder)
+public/
+  goaly.png               Arbiter mascot
+  panda-avatar.png        Header logo
 ```
 
 Path alias: `~/*` → `app/*` (via `vite-tsconfig-paths`).
 
+The design's header has no navigation, so the **GD account chip** in the header
+opens a small menu linking to every screen. That menu is the one deliberate
+addition to the mockup.
+
 ## Talking to the API
 
 `app/lib/api.ts` is the only place that talks to the backend. It exposes
-`fetchHealth`, `fetchChallenges`, `fetchChallenge`, and `createChallenge`.
+`fetchHealth`, `fetchChallengesSnapshot`, `fetchChallenges`, `fetchChallenge`,
+and `createChallenge`.
 
 **Right now it runs against in-memory mocks** (`app/lib/mock-store.ts`), so the
 UI works before the Express API exists. Reset the seed data from the browser
@@ -85,40 +120,51 @@ cp .env.example .env
 npm run dev
 ```
 
-| Variable             | Default | Meaning                                              |
-| -------------------- | ------- | ---------------------------------------------------- |
-| `VITE_USE_MOCKS`     | `true`  | `false` sends real HTTP requests                      |
-| `VITE_API_BASE_URL`  | `/api`  | Base path for API requests                            |
-| `API_TARGET`         | `http://127.0.0.1:4000` | Dev proxy target for `/api` (used by Vite) |
+| Variable            | Default                 | Meaning                                    |
+| ------------------- | ----------------------- | ------------------------------------------ |
+| `VITE_USE_MOCKS`    | `true`                  | `false` sends real HTTP requests           |
+| `VITE_API_BASE_URL` | `/api`                  | Base path for API requests                 |
+| `API_TARGET`        | `http://127.0.0.1:4000` | Dev proxy target for `/api` (used by Vite) |
 
 The dev proxy expects the Express API on port 4000, leaving port 3001 for the
 RGB node.
 
-> The mock data and the `contracts.ts` types mirror the shape the backend team
-> agreed on, so switching to the real API should not require UI changes.
+> `contracts.ts` mirrors the shape the backend team agreed on for the fields the
+> board renders (status, stake, pool, proof source, action). Server-owned extras
+> can be added alongside them without touching the UI.
 
 ## Theming
 
-Themes are configured in `app/app.css`:
+`app/app.css` defines a single custom DaisyUI theme, `goaldigger`, and disables
+the built-in ones:
 
 ```css
 @plugin "daisyui" {
-  themes: light --default, dark --prefersdark;
+  themes: false;
+}
+
+@plugin "daisyui/theme" {
+  name: "goaldigger";
+  default: true;
+  /* slate surfaces, indigo primary, violet secondary … */
 }
 ```
 
-Add more themes (any built-in DaisyUI theme name) to that list and select one by
-setting `data-theme="name"` on `<html>`. `theme-toggle.tsx` shows how the current
-theme is switched and persisted. `root.tsx` includes a small inline script that
-applies the stored theme before first paint (hence `suppressHydrationWarning` on
-the `<html>` element).
+The design is light-only, so there is no theme toggle. The rest of the palette
+(`slate`, `indigo`, `violet`, `blue`, `emerald`) comes straight from Tailwind's
+defaults, which is why the markup reads like the design handoff.
+
+`app/app.css` also holds the pieces the design ships as plain CSS: the
+`.chat-bubble-tail-left` speech-bubble tail and the `.mascot-alive` /
+`.mascot-talking` mascot animations (both disabled under
+`prefers-reduced-motion`).
 
 ## Not built yet
 
-- Challenge creation form (wire to `createChallenge`)
-- Betting flow
-- Evidence submission and verdict display
-- Settlement / payout status
+- Create challenge form (the `+ Custom Challenge` card links to a placeholder)
+- My Proofs / evidence submission and verdict display
+- Pool Ledger
+- Real counter-stake and settlement wiring (the proposal form is UI-only today)
 
 ## Known warnings
 

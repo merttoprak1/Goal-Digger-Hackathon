@@ -1,61 +1,75 @@
 import { z } from "zod";
 
 /**
- * Types shared with the API. These intentionally mirror the shape the backend
- * team agreed on so switching from mocks to the real server needs no UI changes.
+ * Types shared with the API.
+ *
+ * The shape mirrors what the UI renders today (see the approved design). When the
+ * Express API lands, extra server-owned fields can be added alongside these —
+ * nothing here is display-only except `templateEmoji`.
  */
 
-export const CHALLENGE_TEMPLATES = ["wake_up", "exam", "run", "custom"] as const;
+export const CHALLENGE_STATUSES = ["active", "draft", "open", "new"] as const;
+export type ChallengeStatus = (typeof CHALLENGE_STATUSES)[number];
+
+export const CHALLENGE_TEMPLATES = ["run", "exam", "wake_up", "leetcode", "custom"] as const;
 export type ChallengeTemplate = (typeof CHALLENGE_TEMPLATES)[number];
 
-export type ChallengeStatus =
-  | "draft"
-  | "open"
-  | "active"
-  | "settled"
-  | "failed";
+/** Colour family a card uses for pool figures, buttons and hover states. */
+export type ChallengeTone = "indigo" | "violet";
 
-export type FundingStatus = "not_connected" | "pending" | "confirmed";
-
-export interface ProofTerms {
-  method: string;
-  source: string;
-  successRule: string;
-  retryRule: string;
-  failureRule: string;
-}
-
-export interface Funding {
-  status: FundingStatus;
-  network: "mutinynet";
-  confirmedPoolUsdt: string | null;
-}
+/**
+ * Footer of a challenge card. Either an actionable counter-stake or a passive
+ * status line (used by drafts that cannot be joined yet).
+ */
+export type ChallengeAction =
+  | { kind: "button"; label: string; tone: ChallengeTone }
+  | { kind: "info"; label: string; note: string };
 
 export interface Challenge {
   id: string;
-  template: ChallengeTemplate;
-  creatorName: string;
   title: string;
-  requestedStakeUsdt: string;
-  timezone: string;
-  bettingClosesAt: string;
-  startsAt: string;
-  proofDeadline: string;
+  /** Display name of the creator. */
+  creator: string;
   status: ChallengeStatus;
+  template: string;
+  templateEmoji: string;
+  /** Creator's own stake, formatted as a decimal string. */
+  stakeUsdt: string;
+  /** Confirmed opponent pool, or null while the pool is still empty. */
+  poolUsdt: string | null;
+  /** What the arbiter will look at, e.g. "Strava GPS sync". */
+  proofSource: string;
+  action: ChallengeAction;
+  proofDeadline: string;
   createdAt: string;
-  /** Becomes `false` for good once the first opponent bets. */
-  termsEditable: boolean;
-  proof: ProofTerms;
-  funding: Funding;
 }
 
-export const WAKE_UP_PROOF: ProofTerms = {
-  method: "timed_math",
-  source: "A fresh problem and server-recorded answer and submission time.",
-  successRule: "Submit the correct answer during the proof window.",
-  retryRule: "Unclear evidence allows another attempt before the proof deadline.",
-  failureRule: "No accepted proof by the deadline means the creator loses.",
-};
+/** The Goaly arbiter shown in the right-hand panel. */
+export interface ArbiterProfile {
+  name: string;
+  role: string;
+  agent: string;
+  level: string;
+  accuracy: string;
+  statusText: string;
+  /** First messages in the conversation feed. */
+  greeting: string[];
+  /** Canned replies used when a contract is proposed. */
+  replyQuotes: string[];
+}
+
+export interface ProtocolStatus {
+  blockHeight: string;
+  rgbStatus: string;
+  team: string;
+  links: Array<{ label: string; href: string }>;
+}
+
+export interface ChallengesSnapshot {
+  challenges: Challenge[];
+  arbiter: ArbiterProfile;
+  protocol: ProtocolStatus;
+}
 
 /* ------------------------------- responses ------------------------------- */
 
@@ -82,47 +96,31 @@ export interface ApiErrorBody {
 
 /* ------------------------------- requests -------------------------------- */
 
-const isoDateTime = z.iso.datetime({ offset: true });
+const amount = z
+  .string()
+  .regex(
+    /^(?:0|[1-9]\d{0,5})(?:\.\d{1,6})?$/,
+    "Use a positive amount with up to 6 decimals.",
+  )
+  .refine((value) => Number(value) > 0, "Enter an amount greater than zero.");
 
 /** Client-side mirror of the server's validation for the create form. */
 export const createChallengeSchema = z
   .object({
-    template: z.literal("wake_up"),
-    creatorName: z.string().trim().min(1).max(80),
+    template: z.enum(CHALLENGE_TEMPLATES),
+    creator: z.string().trim().min(1).max(60),
     title: z.string().trim().min(3).max(120),
-    requestedStakeUsdt: z
-      .string()
-      .regex(
-        /^(?:0|[1-9]\d{0,5})(?:\.\d{1,6})?$/,
-        "Use a positive amount with up to 6 decimals.",
-      )
-      .refine((value) => Number(value) > 0, "Enter an amount greater than zero."),
-    timezone: z.string().max(80).refine((value) => {
-      try {
-        new Intl.DateTimeFormat("en", { timeZone: value });
-        return true;
-      } catch {
-        return false;
-      }
-    }, "Enter a valid IANA timezone."),
-    bettingClosesAt: isoDateTime,
-    startsAt: isoDateTime,
-    proofDeadline: isoDateTime,
+    stakeUsdt: amount,
+    proofSource: z.string().trim().min(3).max(160),
+    proofDeadline: z.iso.datetime({ offset: true }),
   })
   .strict()
   .superRefine((value, context) => {
-    if (Date.parse(value.bettingClosesAt) > Date.parse(value.startsAt)) {
-      context.addIssue({
-        code: "custom",
-        path: ["bettingClosesAt"],
-        message: "Betting must close before the challenge starts.",
-      });
-    }
-    if (Date.parse(value.proofDeadline) <= Date.parse(value.startsAt)) {
+    if (Date.parse(value.proofDeadline) <= Date.now()) {
       context.addIssue({
         code: "custom",
         path: ["proofDeadline"],
-        message: "The proof deadline must follow the start time.",
+        message: "The proof deadline must be in the future.",
       });
     }
   });

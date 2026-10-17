@@ -3,6 +3,7 @@ import {
   type ApiErrorBody,
   type Challenge,
   type ChallengeListResponse,
+  type ChallengesSnapshot,
   type CreateChallengeRequest,
   type HealthResponse,
 } from "./contracts";
@@ -64,10 +65,6 @@ function delay(ms = 250): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isFuture(dateTime: string): boolean {
-  return Date.parse(dateTime) > Date.now();
-}
-
 /* --------------------------------- reads --------------------------------- */
 
 export async function fetchHealth(): Promise<HealthResponse> {
@@ -79,6 +76,15 @@ export async function fetchHealth(): Promise<HealthResponse> {
     };
   }
   return request<HealthResponse>("/health");
+}
+
+/** Everything the Challenges screen needs in one round trip. */
+export async function fetchChallengesSnapshot(): Promise<ChallengesSnapshot> {
+  if (MOCKS_ENABLED) {
+    await delay();
+    return mocks.getChallengesSnapshot();
+  }
+  return request<ChallengesSnapshot>("/challenges/snapshot");
 }
 
 export async function fetchChallenges(): Promise<Challenge[]> {
@@ -127,12 +133,6 @@ export async function createChallenge(
         "Check the challenge details.",
         fields,
       );
-    }
-
-    if (!isFuture(parsed.data.bettingClosesAt)) {
-      throw new ApiError(400, "INVALID_CHALLENGE", "Check the challenge details.", {
-        bettingClosesAt: ["Choose a future betting cutoff."],
-      });
     }
 
     return mocks.insertChallenge(parsed.data);

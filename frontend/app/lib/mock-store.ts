@@ -1,128 +1,165 @@
-import {
-  WAKE_UP_PROOF,
-  type Challenge,
-  type CreateChallengeRequest,
-  type ProofTerms,
+import type {
+  ArbiterProfile,
+  Challenge,
+  ChallengesSnapshot,
+  ChallengeTemplate,
+  CreateChallengeRequest,
+  ProtocolStatus,
 } from "./contracts";
 
 /**
- * In-memory mock backend. It lives for the lifetime of the tab, which is enough
- * to design and demo the UI before the Express API exists.
+ * In-memory mock backend. Lives for the lifetime of the tab — enough to design
+ * and demo the UI before the Express API and the RGB/QVAC integrations exist.
  *
  * Delete this file (and the mock branches in `api.ts`) once the real API lands.
  */
 
-const EXAM_PROOF: ProofTerms = {
-  method: "document",
-  source: "University transcript or official results page.",
-  successRule: "Show the declared passing grade for the named exam.",
-  retryRule: "Unclear evidence allows another attempt before the proof deadline.",
-  failureRule: "No accepted proof by the deadline means the creator loses.",
+export const PROTOCOL_STATUS: ProtocolStatus = {
+  blockHeight: "428,912",
+  rgbStatus: "RGB Protocol v0.10 Ready",
+  team: "Team Bounty Hunters • RGB + QVAC on Bitcoin • Supervised by Autonomous Arbiter",
+  links: [
+    { label: "Rules", href: "#" },
+    { label: "GitHub", href: "#" },
+    { label: "Discord", href: "#" },
+  ],
 };
 
-const RUN_PROOF: ProofTerms = {
-  method: "activity_record",
-  source: "Activity record from the declared fitness service.",
-  successRule: "Reach the declared distance before the deadline.",
-  retryRule: "Unclear evidence allows another attempt before the proof deadline.",
-  failureRule: "No accepted proof by the deadline means the creator loses.",
+export const ARBITER: ArbiterProfile = {
+  name: "Goaly",
+  role: "Chief Arbiter",
+  agent: "QVAC Agent",
+  level: "Lv. 9",
+  accuracy: "98% Accuracy",
+  statusText: "Goaly is supervising the chain...",
+  greeting: [
+    "Yo! Ready to put your USDT where your mouth is? Name your challenge and stake, or pick a preset below. No slackers allowed on Mutinynet!",
+    "Hey! Stop poking the Arbiter and go finish your challenges!",
+    "Microphone & Oracle feed calibrated. All systems active!",
+  ],
+  replyQuotes: [
+    "Contract terms noted! Locking your timelock on Mutinynet. Don't disappoint the arbiter!",
+    "I will be personally validating the oracle feed. If you fail, the counterparty takes the pool!",
+    "DLC terms registered on Bitcoin testnet. You've got the guts, now bring the proof!",
+    "Stake accepted. The blockchain never lies, and neither do I. Get to work!",
+    "Target locked in my crosshairs. Submit your cryptographic proof before the deadline!",
+  ],
+};
+
+/** Mascot click / audio-toggle lines, matching the source design's behaviour. */
+export const ARBITER_POKE_LINE =
+  "Hey! Stop poking the Arbiter and go finish your challenges!";
+export const ARBITER_CALIBRATION_LINE =
+  "Microphone & Oracle feed calibrated. All systems active!";
+
+const TEMPLATE_LABELS: Record<ChallengeTemplate, { label: string; emoji: string }> = {
+  run: { label: "Run", emoji: "🏃" },
+  exam: { label: "Exam", emoji: "🎓" },
+  wake_up: { label: "Wake Up", emoji: "⏰" },
+  leetcode: { label: "LeetCode", emoji: "💻" },
+  custom: { label: "Custom", emoji: "✨" },
 };
 
 function seed(): Challenge[] {
   return [
     {
-      id: "seed-wake-up",
-      template: "wake_up",
-      creatorName: "Mert",
-      title: "I will wake up at 07:00",
-      requestedStakeUsdt: "5",
-      timezone: "Europe/Rome",
-      bettingClosesAt: "2030-01-02T06:00:00+01:00",
-      startsAt: "2030-01-02T07:00:00+01:00",
-      proofDeadline: "2030-01-02T07:05:00+01:00",
-      status: "open",
-      createdAt: "2026-10-16T09:12:00.000Z",
-      termsEditable: false,
-      proof: WAKE_UP_PROOF,
-      funding: {
-        status: "confirmed",
-        network: "mutinynet",
-        confirmedPoolUsdt: "20",
-      },
-    },
-    {
-      id: "seed-exam",
-      template: "exam",
-      creatorName: "Ege",
-      title: "Pass the distributed systems exam",
-      requestedStakeUsdt: "10",
-      timezone: "Europe/Istanbul",
-      bettingClosesAt: "2030-02-01T07:00:00+03:00",
-      startsAt: "2030-02-10T09:00:00+03:00",
-      proofDeadline: "2030-03-01T23:59:00+03:00",
-      status: "draft",
-      createdAt: "2026-10-16T14:40:00.000Z",
-      termsEditable: true,
-      proof: EXAM_PROOF,
-      funding: {
-        status: "not_connected",
-        network: "mutinynet",
-        confirmedPoolUsdt: null,
-      },
-    },
-    {
-      id: "seed-run",
-      template: "run",
-      creatorName: "Vesim",
+      id: "run-10km",
       title: "Run 10 km before 09:00",
-      requestedStakeUsdt: "2.5",
-      timezone: "Europe/Istanbul",
-      bettingClosesAt: "2030-03-01T05:00:00+03:00",
-      startsAt: "2030-03-01T06:00:00+03:00",
-      proofDeadline: "2030-03-01T09:00:00+03:00",
+      creator: "Vesim",
       status: "active",
-      createdAt: "2026-10-17T06:05:00.000Z",
-      termsEditable: false,
-      proof: RUN_PROOF,
-      funding: {
-        status: "pending",
-        network: "mutinynet",
-        confirmedPoolUsdt: "7.5",
-      },
+      template: TEMPLATE_LABELS.run.label,
+      templateEmoji: TEMPLATE_LABELS.run.emoji,
+      stakeUsdt: "2.5",
+      poolUsdt: "7.5",
+      proofSource: "Proof: Strava GPS sync",
+      action: { kind: "button", label: "Bet Against", tone: "indigo" },
+      proofDeadline: "2026-10-18T09:00:00+00:00",
+      createdAt: "2026-10-16T06:12:00.000Z",
+    },
+    {
+      id: "ds-exam",
+      title: "Pass the distributed systems exam",
+      creator: "Ege",
+      status: "draft",
+      template: TEMPLATE_LABELS.exam.label,
+      templateEmoji: TEMPLATE_LABELS.exam.emoji,
+      stakeUsdt: "10",
+      poolUsdt: null,
+      proofSource: "Exam transcript upload",
+      action: { kind: "info", label: "⏳ Arbiter Review", note: "Awaiting Stake" },
+      proofDeadline: "2026-10-24T09:00:00+00:00",
+      createdAt: "2026-10-16T08:45:00.000Z",
+    },
+    {
+      id: "wake-up-0700",
+      title: "I will wake up at 07:00",
+      creator: "Mert",
+      status: "open",
+      template: TEMPLATE_LABELS.wake_up.label,
+      templateEmoji: TEMPLATE_LABELS.wake_up.emoji,
+      stakeUsdt: "5",
+      poolUsdt: "20",
+      proofSource: "SleepCycle + Photo",
+      action: { kind: "button", label: "Join Pool", tone: "violet" },
+      proofDeadline: "2026-10-26T06:30:00+00:00",
+      createdAt: "2026-10-16T10:02:00.000Z",
+    },
+    {
+      id: "leetcode-3hard",
+      title: "Solve 3 Hard Problems",
+      creator: "SatoshiFan",
+      status: "new",
+      template: TEMPLATE_LABELS.leetcode.label,
+      templateEmoji: TEMPLATE_LABELS.leetcode.emoji,
+      stakeUsdt: "15",
+      poolUsdt: "30",
+      proofSource: "LeetCode API Webhook",
+      action: { kind: "button", label: "Challenge", tone: "indigo" },
+      proofDeadline: "2026-11-02T23:59:00+00:00",
+      createdAt: "2026-10-17T07:20:00.000Z",
     },
   ];
 }
 
 let challenges: Challenge[] = seed();
 
-function byNewestFirst(a: Challenge, b: Challenge): number {
-  return b.createdAt.localeCompare(a.createdAt);
-}
-
+/** Ordered by proof deadline, which is what the "Sorted by" label promises. */
 export function listChallenges(): Challenge[] {
-  return [...challenges].sort(byNewestFirst);
+  return [...challenges].sort((a, b) =>
+    a.proofDeadline.localeCompare(b.proofDeadline),
+  );
 }
 
 export function getChallenge(id: string): Challenge | undefined {
   return challenges.find((challenge) => challenge.id === id);
 }
 
+export function getChallengesSnapshot(): ChallengesSnapshot {
+  return {
+    challenges: listChallenges(),
+    arbiter: ARBITER,
+    protocol: PROTOCOL_STATUS,
+  };
+}
+
 export function insertChallenge(
   request: CreateChallengeRequest,
   now: Date = new Date(),
 ): Challenge {
+  const template = TEMPLATE_LABELS[request.template];
   const challenge: Challenge = {
-    ...request,
     id: crypto.randomUUID(),
+    title: request.title,
+    creator: request.creator,
     status: "draft",
+    template: template.label,
+    templateEmoji: template.emoji,
+    stakeUsdt: request.stakeUsdt,
+    poolUsdt: null,
+    proofSource: request.proofSource,
+    action: { kind: "info", label: "⏳ Arbiter Review", note: "Awaiting Stake" },
+    proofDeadline: request.proofDeadline,
     createdAt: now.toISOString(),
-    termsEditable: false,
-    proof: WAKE_UP_PROOF,
-    funding: {
-      status: "not_connected",
-      network: "mutinynet",
-      confirmedPoolUsdt: null,
-    },
   };
   challenges = [challenge, ...challenges];
   return challenge;
