@@ -65,6 +65,8 @@ The separate [WDK check](docs/WDK-CHECK.md) connects a fresh test wallet to Muti
 It uses the mentor's sandbox package version. It does not send funds or change the existing node.
 
 The WDK wallet now holds [50,000 confirmed test sats](docs/WDK-FUNDING.md) for later RGB tests.
+It also received [1 confirmed test USDT](docs/WDK-DEPOSIT.md) through an explicit CustomSignet adapter.
+An outgoing WDK RGB transfer remains the next payment check.
 
 ## Local RGB: second integration step
 

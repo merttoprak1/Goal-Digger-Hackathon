@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "prepare-native": "node prepare-native.mjs",
-    "check": "bare check.mjs"
+    "check": "bare check.mjs",
+    "receive": "bare check.mjs receive",
+    "refresh": "bare check.mjs refresh"
   },
   "type": "module",
   "dependencies": {

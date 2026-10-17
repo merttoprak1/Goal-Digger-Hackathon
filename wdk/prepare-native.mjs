@@ -25,3 +25,13 @@ if (!bytes || hash(bytes) !== expected) {
   await writeFile(target, bytes)
 }
 console.log('The tested Mac ARM native addon is ready.')
+
+const bindingPath = new URL('./node_modules/@utexo/wdk-wallet-rgb/src/bare-binding.js', import.meta.url)
+const original = '20ff9e5ed63d5ac3da0dfce548bca7aedef9cfa9109393aa0a81c1a96ec189c4'
+const before = 'bitcoinNetwork: mapNetwork(network),'
+const after = "bitcoinNetwork: process.env.GOAL_DIGGER_CUSTOM_SIGNET === '1' && network === 'signet' ? 'SignetCustom' : mapNetwork(network),"
+const binding = await readFile(bindingPath, 'utf8')
+const unpatched = binding.replace(after, before)
+if (hash(unpatched) !== original) throw new Error('The WDK binding differs from the pinned source. Refusing to patch it.')
+await writeFile(bindingPath, unpatched.replace(before, after))
+console.log('The explicit CustomSignet adapter flag is ready.')

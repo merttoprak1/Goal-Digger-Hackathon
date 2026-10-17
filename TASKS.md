@@ -13,6 +13,7 @@ Branch: `qvac-RGB`. Complete one task, check it, then commit and push before sta
 - [x] Complete a real transfer of 1 test USDT to Ege.
 - [x] Connect and synchronize a separate WDK wallet on Mutinynet.
 - [x] Fund the WDK wallet with 50,000 test sats and confirm settlement.
+- [x] Receive 1 test USDT in WDK and confirm settlement on both wallets.
 
 ## 1. Add one QVAC request endpoint (complete)
 
@@ -100,4 +101,5 @@ Keep changes on the assigned branch. Merge shared changes normally. Never stash,
 
 The separate [WDK wallet](docs/WDK-CHECK.md) passed synchronization and service error checks on Mutinynet.
 The [funding record](docs/WDK-FUNDING.md) confirms 50,000 test sats as settled and spendable.
-Next, create a WDK RGB receive invoice and deposit 1 test USDT.
+The [WDK deposit record](docs/WDK-DEPOSIT.md) confirms 1 test USDT settled and spendable in the CustomSignet wallet.
+Next, send that 1 test USDT back through WDK and confirm signing, transfer, and settlement.
