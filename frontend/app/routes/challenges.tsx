@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useRevalidator } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
 
 import type { Route } from "./+types/challenges";
 import { MessageIn, StatusLabel, TypingDots } from "~/components/chat";
 import { Icon } from "~/components/icon";
-import { fetchChallengesSnapshot } from "~/lib/api";
+import { fetchChallengesSnapshot, placeBet } from "~/lib/api";
 import { EASE } from "~/lib/motion";
-import { POOL_TONE, proofHint, STATUS_BADGE } from "~/lib/challenge-view";
+import {
+  formatDeadline,
+  POOL_TONE,
+  proofHint,
+  STATUS_BADGE,
+} from "~/lib/challenge-view";
 import type {
   ArbiterProfile,
   Challenge,
   ChallengeStatus,
   ChallengesSnapshot,
+  WalletBalance,
 } from "~/lib/contracts";
 
 export function meta({}: Route.MetaArgs) {
@@ -620,24 +626,331 @@ function GoalyChat({
   );
 }
 
+/* --------------------------------- bet sheet ----------------------------- */
+
+/**
+ * The counter-stake sheet — what a card's "Bet Against" / "Join Pool" /
+ * "Challenge" button opens before any money moves. It spells out the terms,
+ * shows the money on both sides and locks the stake through `placeBet`, so the
+ * board, the wallet and the escrow hold all agree once it closes.
+ */
+function BetSheet({
+  challenge,
+  balance,
+  arbiter,
+  onClose,
+  onAskGoaly,
+  onLocked,
+}: {
+  challenge: Challenge;
+  balance: WalletBalance;
+  arbiter: string;
+  onClose: () => void;
+  onAskGoaly: () => void;
+  onLocked: () => void;
+}) {
+  const [state, setState] = useState<"idle" | "locking" | "locked">("idle");
+  const [error, setError] = useState<string | null>(null);
+  // The pot is read once: after the stake lands, the live value already counts
+  // this viewer's money, so re-reading it would double the stake.
+  const [pot] = useState(() => Number(challenge.poolUsdt ?? 0));
+
+  const stake = Number(challenge.stakeUsdt);
+  const funds = Number(balance.usdt);
+  const prize = pot + stake;
+  const uncovered = Number.isFinite(stake) && stake > funds;
+  const usd = (value: number) => value.toFixed(2);
+
+  // Escape closes the sheet, the way a dialog should.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function lock() {
+    if (uncovered || state !== "idle") return;
+    setState("locking");
+    setError(null);
+    try {
+      await placeBet(challenge.id);
+      setState("locked");
+      onLocked();
+    } catch (cause) {
+      setState("idle");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The stake could not be locked. Try again.",
+      );
+    }
+  }
+
+  const requirements = [
+    {
+      icon: "account_balance_wallet",
+      title: `Lock ${challenge.stakeUsdt} USDT`,
+      detail: "Leaves your balance for the DLC escrow until the pool settles.",
+    },
+    {
+      icon: "verified_user",
+      title: `Prove it with ${proofHint(challenge)}`,
+      detail:
+        "The arbiter reads the proof source itself, so nobody trusts your word.",
+    },
+    {
+      icon: "schedule",
+      title: `Submit before ${formatDeadline(challenge.proofDeadline)}`,
+      detail: "Late evidence is not arbitrated — the pool settles without it.",
+    },
+    {
+      icon: "gavel",
+      title: `Accept ${arbiter}'s ruling`,
+      detail: "One outcome is signed on-chain. Settlements are final.",
+    },
+  ];
+
+  return (
+    <motion.div
+      key="bet-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18, ease: EASE }}
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/40 backdrop-blur-sm sm:items-center sm:p-4"
+    >
+      <motion.section
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Requirements to bet on ${challenge.title}`}
+        onClick={(event) => event.stopPropagation()}
+        initial={{ opacity: 0, y: 28, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 24, scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-3xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/25 sm:rounded-3xl"
+      >
+        <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-100 text-xl">
+            {challenge.templateEmoji}
+          </span>
+          <div className="min-w-0 flex-1">
+            <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-indigo-700 uppercase">
+              {challenge.action.kind === "button"
+                ? challenge.action.label
+                : "Counter-stake"}
+            </span>
+            <h2 className="mt-1.5 text-base leading-snug font-bold text-slate-900">
+              {challenge.title}
+            </h2>
+            <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+              by{" "}
+              <span className="font-semibold text-slate-600">
+                {challenge.creator}
+              </span>{" "}
+              · {challenge.template}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close the bet requirements"
+            className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <Icon name="close" className="text-[18px]" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100 bg-slate-50/70">
+          <div className="px-3 py-3 text-center">
+            <span className="block text-[10px] font-bold tracking-wide text-slate-400 uppercase">
+              Your stake
+            </span>
+            <span className="mt-0.5 block font-mono text-sm font-bold text-slate-900">
+              {challenge.stakeUsdt}
+            </span>
+          </div>
+          <div className="px-3 py-3 text-center">
+            <span className="block text-[10px] font-bold tracking-wide text-slate-400 uppercase">
+              Pool now
+            </span>
+            <span
+              className={`mt-0.5 block font-mono text-sm font-bold ${POOL_TONE[challenge.status]}`}
+            >
+              {usd(pot)}
+            </span>
+          </div>
+          <div className="px-3 py-3 text-center">
+            <span className="block text-[10px] font-bold tracking-wide text-slate-400 uppercase">
+              If you win
+            </span>
+            <span className="mt-0.5 block font-mono text-sm font-bold text-emerald-600">
+              {usd(prize)}
+            </span>
+          </div>
+        </div>
+
+        <div className="px-5 py-4">
+          <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+            <Icon name="fact_check" className="text-[15px]" />
+            Requirements to bet
+          </h3>
+
+          <ul className="mt-3 flex flex-col gap-2.5">
+            {requirements.map((rule) => (
+              <li key={rule.icon} className="flex items-start gap-3">
+                <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+                  <Icon name={rule.icon} className="text-[16px]" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold text-slate-800">
+                    {rule.title}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">
+                    {rule.detail}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <div
+            className={[
+              "mt-3 flex items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-[11px] font-semibold",
+              uncovered
+                ? "border-rose-200 bg-rose-50 text-rose-600"
+                : "border-slate-200 bg-slate-50 text-slate-500",
+            ].join(" ")}
+          >
+            <span className="flex items-center gap-1.5">
+              <Icon
+                name={uncovered ? "error" : "account_balance_wallet"}
+                className="text-[15px]"
+              />
+              {uncovered ? "Not enough spendable USDT" : "Spendable balance"}
+            </span>
+            <span className="font-mono font-bold">{balance.usdt} USDT</span>
+          </div>
+
+          {error ? (
+            <p className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-rose-600">
+              <Icon name="error" className="text-[15px]" />
+              {error}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="border-t border-slate-100 px-5 py-4">
+          {state === "locked" ? (
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-start gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5">
+                <Icon
+                  name="check_circle"
+                  filled
+                  className="text-[18px] text-emerald-500"
+                />
+                <div>
+                  <p className="text-xs font-bold text-emerald-700">
+                    Stake locked
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed font-medium text-emerald-700/80">
+                    {challenge.stakeUsdt} USDT moved into the escrow. Winner
+                    takes {usd(prize)} USDT.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex flex-1 cursor-pointer items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+                >
+                  Done
+                </button>
+                <Link
+                  to="/wallet"
+                  className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                >
+                  <Icon name="account_balance_wallet" className="text-[17px]" />
+                  Wallet
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={lock}
+                  disabled={uncovered || state === "locking"}
+                  className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:active:scale-100"
+                >
+                  <Icon
+                    name={state === "locking" ? "progress_activity" : "lock"}
+                    className={
+                      state === "locking"
+                        ? "animate-spin text-[17px]"
+                        : "text-[17px]"
+                    }
+                  />
+                  {state === "locking"
+                    ? "Locking stake…"
+                    : `Lock ${challenge.stakeUsdt} USDT`}
+                </button>
+                <button
+                  type="button"
+                  onClick={onAskGoaly}
+                  className="shrink-0 cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                >
+                  Ask {arbiter}
+                </button>
+              </div>
+              <p className="text-center text-[10px] font-medium text-slate-400">
+                Your stake sits in a Bitcoin DLC escrow — no custodian holds it.
+              </p>
+            </div>
+          )}
+        </div>
+      </motion.section>
+    </motion.div>
+  );
+}
+
 /* --------------------------------- screen -------------------------------- */
 
 export default function Challenges({ loaderData }: Route.ComponentProps) {
-  const { challenges, arbiter } = loaderData as ChallengesSnapshot;
+  const { challenges, arbiter, balance } = loaderData as ChallengesSnapshot;
   const [prefill, setPrefill] = useState<PrefillRequest | null>(null);
   const [board, setBoard] = useState<BoardFilter>("all");
   const [chatOpen, setChatOpen] = useState(false);
+  const [bet, setBet] = useState<Challenge | null>(null);
   const nonce = useRef(0);
+  const revalidator = useRevalidator();
 
   const visible = challenges.filter((challenge) => inBoard(challenge, board));
   const toggleChat = useCallback(() => setChatOpen((value) => !value), []);
+  const closeBet = useCallback(() => setBet(null), []);
 
+  // A card button opens the terms first; the money only moves on confirm.
   function handleAction(challenge: Challenge) {
+    setBet(challenge);
+  }
+
+  /** "Ask Goaly" hands the sheet's values to the chat instead of locking them. */
+  function askGoaly() {
+    if (!bet) return;
     nonce.current += 1;
-    setPrefill({ challenge, nonce: nonce.current });
-    // The prefill lands in the chat, so open it rather than whisper into a
-    // closed panel.
+    setPrefill({ challenge: bet, nonce: nonce.current });
     setChatOpen(true);
+    setBet(null);
+  }
+
+  /** A locked stake changes the board, the escrow and the balance: re-read it. */
+  function handleLocked() {
+    revalidator.revalidate();
   }
 
   return (
@@ -754,6 +1067,20 @@ export default function Challenges({ loaderData }: Route.ComponentProps) {
           </Link>
         </div>
       </div>
+
+      <AnimatePresence>
+        {bet ? (
+          <BetSheet
+            key={bet.id}
+            challenge={bet}
+            balance={balance}
+            arbiter={arbiter.name}
+            onClose={closeBet}
+            onAskGoaly={askGoaly}
+            onLocked={handleLocked}
+          />
+        ) : null}
+      </AnimatePresence>
 
       <GoalyChat
         arbiter={arbiter}

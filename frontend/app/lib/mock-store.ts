@@ -179,6 +179,7 @@ export function getChallengesSnapshot(): ChallengesSnapshot {
     challenges: listChallenges(),
     arbiter: ARBITER,
     protocol: PROTOCOL_STATUS,
+    balance: WALLET_BALANCE,
   };
 }
 
@@ -213,6 +214,68 @@ export function insertChallenge(
 /** Useful while designing: reset the mocks from the browser console. */
 export function resetChallenges(): void {
   challenges = seed();
+}
+
+/** `DLC #8942-B` — the short escrow tag the wallet shows next to a hold. */
+function dlcTag(): string {
+  const digits = Math.floor(1000 + Math.random() * 9000);
+  const letter = String.fromCharCode(65 + Math.floor(Math.random() * 6));
+  return `DLC #${digits}-${letter}`;
+}
+
+/**
+ * Lock a counter-stake into a pool: the stake leaves the spendable balance, sits
+ * in the DLC escrow, joins the pool and leaves a ledger entry behind. Mirrors
+ * the escrow the RGB rail will hold, so the board, the wallet and the profile
+ * all agree after a bet.
+ */
+export function placeBet(id: string): Challenge | null {
+  const challenge = challenges.find((item) => item.id === id);
+  if (!challenge || challenge.status === "settled") return null;
+
+  const stake = Number(challenge.stakeUsdt);
+  if (!Number.isFinite(stake) || stake <= 0) return null;
+
+  challenge.poolUsdt = money(Number(challenge.poolUsdt ?? 0) + stake);
+  challenge.viewer = {
+    staked: true,
+    created: challenge.viewer?.created ?? false,
+    won: false,
+  };
+  // A draft with a counter-stake behind it is joinable now.
+  if (challenge.status === "draft") {
+    challenge.status = "open";
+    challenge.action = { kind: "button", label: "Bet Against" };
+  }
+
+  WALLET_BALANCE.usdt = money(Number(WALLET_BALANCE.usdt) - stake);
+  WALLET.lockedUsdt = Number((WALLET.lockedUsdt + stake).toFixed(2));
+
+  // One escrow row per pool: betting again tops up the same DLC.
+  const hold = WALLET.holds.find((entry) => entry.id === challenge.id);
+  if (hold) {
+    hold.amountUsdt = money(Number(hold.amountUsdt) + stake);
+  } else {
+    WALLET.holds.push({
+      id: challenge.id,
+      title: challenge.title,
+      amountUsdt: money(stake),
+      via: dlcTag(),
+    });
+  }
+
+  WALLET.entries.unshift({
+    id: `w-lock-${crypto.randomUUID().slice(0, 8)}`,
+    label: "Stake locked",
+    detail: `DLC escrow • ${challenge.title}`,
+    amount: `-${money(stake)}`,
+    unit: "USDT",
+    kind: "lock",
+    badge: { label: "Locked", tone: "blue" },
+    timestamp: "Just now",
+  });
+
+  return challenge;
 }
 
 /* --------------------------------- profile -------------------------------- */

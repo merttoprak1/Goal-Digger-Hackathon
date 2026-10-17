@@ -93,6 +93,8 @@ export interface ChallengesSnapshot {
   challenges: Challenge[];
   arbiter: ArbiterProfile;
   protocol: ProtocolStatus;
+  /** What the viewer can put behind a counter-stake; the bet sheet reads it. */
+  balance: WalletBalance;
 }
 
 /* --------------------------------- profile -------------------------------- */

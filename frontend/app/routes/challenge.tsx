@@ -2,7 +2,7 @@ import { data, Link } from "react-router";
 
 import type { Route } from "./+types/challenge";
 import { fetchChallenge } from "~/lib/api";
-import { POOL_TONE, STATUS_BADGE } from "~/lib/challenge-view";
+import { formatDeadline, POOL_TONE, STATUS_BADGE } from "~/lib/challenge-view";
 
 export function meta({ data: loaderData }: Route.MetaArgs) {
   const challenge = loaderData?.challenge;
@@ -21,16 +21,6 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
     throw data("Challenge not found", { status: 404 });
   }
   return { challenge };
-}
-
-function formatDeadline(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return `${parsed.toLocaleString("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  })} UTC`;
 }
 
 export default function ChallengeDetail({ loaderData }: Route.ComponentProps) {

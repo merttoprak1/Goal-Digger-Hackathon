@@ -89,9 +89,18 @@ Goaly sits in the bottom-right corner as a launcher, so the board keeps the full
 width until you open it. The chat then slides up from that corner as a dialog
 and floats over the board instead of taking a column; Escape or the close button
 dismisses it. It is interactive: the mascot reacts when clicked, the preset
-chips and the card action buttons pre-fill the proposal form, and proposing a
-contract appends your message and a simulated arbiter reply. A card action opens
-the chat itself, since that is where its pre-fill lands.
+chips pre-fill the proposal form, and proposing a contract appends your message
+and a simulated arbiter reply.
+
+A card action — **Bet Against**, **Join Pool** or **Challenge** — opens the
+counter-stake sheet rather than the chat. It names the money on both sides (your
+stake, the pool today, what a win pays), lists what you are agreeing to (lock the
+stake, prove it with the pool's own proof source, beat the deadline, accept the
+arbiter's ruling), and checks the stake against your spendable balance. Confirming
+locks it for real in the mock store: the USDT leaves your balance, tops up the
+pool and the escrow hold, lands in the wallet ledger as *Stake locked*, and the
+board re-reads the snapshot so the card shows the bigger pool. **Ask Goaly** on
+the sheet is the way back to the chat, with the same values pre-filled.
 
 ### `/challenges/new` — create custom challenge
 
@@ -133,7 +142,9 @@ Below it: three stat cards (available, locked in escrow, tBTC reserve), the escr
 breakdown — one row per funded DLC, each linking to its challenge — and the
 activity ledger. The escrow side reads from `WALLET.lockedUsdt`, while the
 spendable side *is* `WALLET_BALANCE`, so this screen and the profile balance card
-can never disagree.
+can never disagree. A counter-stake locked on the board is visible here
+immediately: the balance drops, the hold grows, and the ledger gains the row.
+Betting twice on one pool tops up its existing hold instead of listing it twice.
 
 ### `/payout` — settled pools
 
@@ -173,12 +184,12 @@ app/
     contracts.ts          API types + zod schema for the create form
     api.ts                API client (mock-aware, throws typed ApiError)
     mock-store.ts         In-memory fake backend with seed data
-    challenge-view.ts     Shared status/pool colour maps for challenge cards
+    challenge-view.ts     Shared status/pool colour maps and the deadline format
     motion.ts             Shared easing curve for every transition
     tones.ts              Shared accent maps for tiles, badges, notes and actions
   routes/
     home.tsx              Redirects to /challenges (the design has no landing page)
-    challenges.tsx        The challenge board, its filters + Goaly corner chat
+    challenges.tsx        The challenge board, its filters, Goaly corner chat + bet sheet
     challenge.tsx         Challenge detail
     challenge-new.tsx     Create custom challenge (chat-driven builder)
     profile.tsx           User profile, arbiter and wallet balance
@@ -202,7 +213,7 @@ still exist but are not linked, since their boards are not built yet.
 `app/lib/api.ts` is the only place that talks to the backend. It exposes
 `fetchHealth`, `fetchChallengesSnapshot`, `fetchChallenges`, `fetchChallenge`,
 `fetchProfileSnapshot`, `fetchWalletSnapshot`, `fetchPayoutSnapshot`,
-`createChallenge` and `claimPayout`.
+`createChallenge`, `placeBet` and `claimPayout`.
 
 **Right now it runs against in-memory mocks** (`app/lib/mock-store.ts`), so the
 UI works before the Express API exists. Reset the seed data from the browser
@@ -268,7 +279,8 @@ counts in `components/count-up.tsx` (profile stats, wallet balance, payout
 totals, and the summary XP as the stake is edited), the arbiter panel flashing
 when a card prefills it, chat bubbles easing in, the “Goaly is typing” bubble,
 the arena card stagger with its hover lift, the Goaly launcher handing the corner
-over to the chat panel, the payout tab cross-fade, the spring
+over to the chat panel, the counter-stake sheet rising from the bottom edge with
+its spinner while the stake locks, the payout tab cross-fade, the spring
 check badge on the selected visibility card, the deposit / cashout drawer
 unfolding under the balance card, the tick swapping in on the copy controls, and
 the mascot squash on poke.
@@ -289,12 +301,13 @@ system for less motion get the same layout without the transforms — matching t
 
 - My Proofs / evidence submission and verdict display
 - Pool Ledger
-- Real counter-stake and settlement wiring (the arbiter panel and the proposal
-  and create forms are UI-only today)
+- Real counter-stake and settlement wiring — the bet sheet locks the stake in
+  the in-memory store, but no Bitcoin moves. The arbiter panel and the proposal
+  and create forms are UI-only today
 - Cashouts — the wallet’s Cashout drawer shows the fee and destination, but the
   button itself waits for the RGB escrow rail
-- Persistence — mocks live in memory, so a reload resets everything, including
-  claims made on `/payout`
+- Persistence — mocks live in memory, so a reload resets everything: claims made
+  on `/payout` and stakes locked from the board
 
 ## Known warnings
 

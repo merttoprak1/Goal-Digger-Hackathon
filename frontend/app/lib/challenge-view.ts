@@ -22,3 +22,14 @@ export const POOL_TONE: Record<ChallengeStatus, string> = {
 export function proofHint(challenge: Challenge): string {
   return challenge.proofSource.replace(/^Proof:\s*/i, "");
 }
+
+/** "18 Oct 2026, 09:00 UTC" — shared by the detail page and the bet sheet. */
+export function formatDeadline(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return `${parsed.toLocaleString("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  })} UTC`;
+}

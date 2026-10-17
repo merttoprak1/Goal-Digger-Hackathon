@@ -175,6 +175,25 @@ export async function createChallenge(
   return challenge;
 }
 
+/** Lock a counter-stake into a pool and get the updated challenge back. */
+export async function placeBet(id: string): Promise<Challenge> {
+  if (MOCKS_ENABLED) {
+    await delay(500);
+
+    const challenge = mocks.placeBet(id);
+    if (!challenge) {
+      throw new ApiError(409, "POOL_CLOSED", "That pool is not open to bets.");
+    }
+    return challenge;
+  }
+
+  const { challenge } = await request<{ challenge: Challenge }>(
+    `/challenges/${encodeURIComponent(id)}/bets`,
+    { method: "POST" },
+  );
+  return challenge;
+}
+
 /** Claim one settled pool and get the refreshed payout snapshot back. */
 export async function claimPayout(id: string): Promise<PayoutSnapshot> {
   if (MOCKS_ENABLED) {
