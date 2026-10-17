@@ -64,6 +64,8 @@ Reference: [QVAC HTTP server](https://docs.qvac.tether.io/cli/http-server/).
 The separate [WDK check](docs/WDK-CHECK.md) connects a fresh test wallet to Mutinynet through the Bare runtime.
 It uses the mentor's sandbox package version. It does not send funds or change the existing node.
 
+The WDK wallet now holds [50,000 confirmed test sats](docs/WDK-FUNDING.md) for later RGB tests.
+
 ## Local RGB: second integration step
 
 After the node is running and unlocked, run this read-only check:
