@@ -51,7 +51,7 @@ The check asks the model to calculate 2 + 2. It succeeds only when the answer is
 
 For another model location, set `QVAC_MODEL_PATH` to the GGUF file before starting QVAC. The server uses localhost port 11434.
 
-This is a text inference check. Image evidence, challenge verification, RGB integration endpoints, payments, and the integrated demo remain future steps.
+This is a text inference check. Image evidence, challenge verification, payments, and the integrated demo remain future steps.
 
 The earlier app skeleton was removed. There is no frontend or npm project on this branch yet.
 
@@ -72,6 +72,34 @@ It reads node and network information from localhost port 3001. It displays the 
 The check does not display wallet keys or move funds. A successful connection does not establish that a payment or asset transfer works.
 
 Reference: [RGB Lightning Node API](https://github.com/RGB-Tools/rgb-lightning-node#use).
+
+## Local health endpoint: third integration step
+
+Start the endpoint in another terminal:
+
+```bash
+node server.mjs
+```
+
+Open [the health endpoint](http://127.0.0.1:4000/health). A healthy response looks like this:
+
+```json
+{
+  "status": "ok",
+  "qvac": { "status": "ok" },
+  "rgb": { "status": "ok" }
+}
+```
+
+The endpoint checks both services on each request, with a three-second timeout per service. It returns HTTP 200 when both checks pass.
+
+If either check fails, it returns HTTP 503 with `status: degraded` and each service's result. An upstream HTTP error includes its status code.
+
+QVAC passes when its server lists the `goal-digger` model. This checks configuration and connectivity, not inference or whether the model is loaded.
+
+RGB passes when the unlocked node returns its information. The endpoint never returns wallet details or moves funds.
+
+The server uses localhost port 4000 and requires no npm dependencies.
 
 ## Prior work
 No application code yet. Only the environment setup above existed before the hackathon; all app code is written during the event in dated commits.
