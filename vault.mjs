@@ -25,9 +25,9 @@ function issueInvoice(amountAtomic) {
     }));
 }
 
-function readDeposit(saved) {
+function readDeposit(saved, mode = 'deposit-status') {
   const cwd = fileURLToPath(new URL('./wdk/', import.meta.url));
-  return new Promise((resolve, reject) => execFile(`${cwd}/node_modules/.bin/bare`, ['check.mjs', 'deposit-status', saved.recipientId],
+  return new Promise((resolve, reject) => execFile(`${cwd}/node_modules/.bin/bare`, ['check.mjs', mode, saved.recipientId],
     { cwd, timeout: 60_000, maxBuffer: 65536 }, (err, stdout) => {
       if (err) return reject(new Error('The WDK status request failed.'));
       try {
@@ -56,6 +56,24 @@ export function assessDeposit(saved, snapshot) {
   if (transfer.status === 'Settled') return { status: 'settled', txid };
   if (['WaitingBroadcast', 'WaitingConfirmations'].includes(transfer.status)) return { status: 'pending', txid };
   return { status: 'unknown', txid };
+}
+
+export function assessPayout(saved, snapshot) {
+  const result = status => ({ status, txid: saved.txid });
+  if (snapshot?.assetId !== saved.assetId || !Array.isArray(snapshot.transfers)) return result('unknown');
+  const matches = snapshot.transfers.filter(t => t.recipientId === saved.recipientId && t.kind === 'Send');
+  if (!matches.length) return result('unknown');
+  if (matches.length !== 1) return result('review_required');
+  const transfer = matches[0];
+  // Outgoing transfers have an empty assignments list. Check requestedAssignment instead.
+  const assignment = transfer.requestedAssignment;
+  if (typeof saved.txid !== 'string' || !/^[a-f0-9]{64}$/.test(saved.txid) || transfer.txid !== saved.txid ||
+      !assignment || Object.keys(assignment).join(',') !== 'Fungible' || !Number.isSafeInteger(assignment.Fungible) ||
+      String(assignment.Fungible) !== saved.amountAtomic) return result('review_required');
+  if (transfer.status === 'Settled') return result('settled');
+  if (transfer.status === 'Failed') return result('failed');
+  if (['WaitingCounterparty', 'WaitingBroadcast', 'WaitingConfirmations'].includes(transfer.status)) return result('pending');
+  return result('unknown');
 }
 
 function decodeInvoice(invoice) {
@@ -91,7 +109,7 @@ function sendPayout(saved) {
     }));
 }
 
-export function createVaultServer({ token, databasePath, issueInvoice: issue = issueInvoice, readDeposit: inspect = readDeposit, decodeInvoice: decode = decodeInvoice, executePayout: execute = sendPayout }) {
+export function createVaultServer({ token, databasePath, issueInvoice: issue = issueInvoice, readDeposit: inspect = readDeposit, decodeInvoice: decode = decodeInvoice, executePayout: execute = sendPayout, readPayout: inspectPayout = saved => readDeposit(saved, 'payout-status') }) {
   if (typeof token !== 'string' || !token) throw new Error('Set VAULT_API_TOKEN before starting the vault.');
   mkdirSync(dirname(databasePath), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(databasePath);
@@ -110,6 +128,9 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
   const claimAttempt = db.prepare('INSERT INTO payout_attempts VALUES (?, ?) ON CONFLICT DO NOTHING');
   const updateAttempt = db.prepare('UPDATE payout_attempts SET result = ? WHERE id = ?');
   const payoutResult = saved => ({ ...saved, ...JSON.parse(readAttempt.get(saved.payoutId)?.result || '{}') });
+  db.exec('CREATE TABLE IF NOT EXISTS payout_status (id TEXT PRIMARY KEY, result TEXT NOT NULL)');
+  const readPayoutStatus = db.prepare('SELECT result FROM payout_status WHERE id = ?');
+  const savePayoutStatus = db.prepare('INSERT INTO payout_status VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET result = excluded.result');
   let queue = Promise.resolve();
   const server = createServer({ requestTimeout: 10_000 }, async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
@@ -119,12 +140,31 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
       const supplied = Buffer.from(req.headers.authorization || '');
       const expected = Buffer.from(`Bearer ${token}`);
       if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw error(401, 'A valid vault token is required.');
+      const payoutStatusMatch = /^\/vault\/payouts\/([a-zA-Z0-9_-]{1,80})\/status$/.exec(req.url || '');
+      if (payoutStatusMatch) {
+        if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); throw error(405, 'Use GET for this endpoint.'); }
+        const operation = queue.then(async () => {
+          const old = readPayout.get(payoutStatusMatch[1]);
+          if (!old) throw error(404, 'Payout ID not found.');
+          const saved = payoutResult(JSON.parse(old.result));
+          if (saved.status !== 'accepted' || !/^[a-f0-9]{64}$/.test(saved.txid || '')) {
+            return { ...saved, executionStatus: saved.status, checkedAt: null };
+          }
+          const checked = { ...assessPayout(saved, await inspectPayout(saved)), checkedAt: new Date().toISOString() };
+          savePayoutStatus.run(saved.payoutId, JSON.stringify(checked));
+          return { ...saved, ...checked, executionStatus: saved.status };
+        });
+        queue = operation.catch(() => {});
+        reply(200, await operation);
+        return;
+      }
       const payoutMatch = /^\/vault\/payouts\/([a-zA-Z0-9_-]{1,80})$/.exec(req.url || '');
       if (payoutMatch && payoutMatch[1] !== 'validate') {
         if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); throw error(405, 'Use GET for this endpoint.'); }
         const old = readPayout.get(payoutMatch[1]);
         if (!old) throw error(404, 'Payout ID not found.');
-        reply(200, payoutResult(JSON.parse(old.result)));
+        const settlement = readPayoutStatus.get(payoutMatch[1]);
+        reply(200, { ...payoutResult(JSON.parse(old.result)), ...(settlement ? { settlement: JSON.parse(settlement.result) } : {}) });
         return;
       }
       const statusMatch = /^\/vault\/deposits\/([a-zA-Z0-9_-]{1,80})$/.exec(req.url || '');

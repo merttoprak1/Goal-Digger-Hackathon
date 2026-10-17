@@ -46,8 +46,8 @@ It does not create allocation outputs automatically.
 | 503 | Decoder, wallet, process, or storage operation failed |
 
 A successful response contains the saved payout fields, `status: "accepted"`, `txid`, and `attemptedAt`.
-`accepted` does not mean confirmed or settled. This step does not add automatic settlement tracking.
-The response from `GET /vault/payouts/<payoutId>` includes the latest execution record.
+`accepted` does not mean confirmed or settled. Use the separate [status endpoint](PAYOUT-SETTLEMENT.md) to check settlement.
+The response from `GET /vault/payouts/<payoutId>` includes the latest execution record and any previous settlement check.
 The original request remains immutable. POST retries to save the request still return its original `prepared` record.
 
 If the sender times out, crashes, returns invalid data, or fails before a usable transaction ID returns, the attempt stays `unknown`.
@@ -80,4 +80,4 @@ node --test payout-execution.test.mjs payout-transfer.test.mjs payout-requests.t
 
 On October 17, 2026, all 31 tests passed without a live transfer.
 They cover concurrent execution, restarts, uncertain results, database claims across server instances, invoice checks, spendable balances, and transfer arguments.
-The next small step is to check settlement of an accepted payout through WDK transfer history.
+Use the separate [status endpoint](PAYOUT-SETTLEMENT.md) for a fresh check against WDK transfer history.

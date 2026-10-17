@@ -10,7 +10,7 @@ const walletDataDir = `${dataDir}/custom-signet`
 const indexerUrl = process.env.WDK_INDEXER_URL || 'https://esplora.signet.kaleidoswap.com'
 const transportEndpoint = 'rpcs://proxy.iriswallet.com/0.2/json-rpc'
 const mode = process.argv[2] || 'check'
-if (!['check', 'receive', 'refresh', 'prepare-slots', 'send-back', 'deposit', 'deposit-status', 'execute-payout'].includes(mode)) throw new Error('Invalid WDK operation.')
+if (!['check', 'receive', 'refresh', 'prepare-slots', 'send-back', 'deposit', 'deposit-status', 'execute-payout', 'payout-status'].includes(mode)) throw new Error('Invalid WDK operation.')
 const assetId = 'rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0'
 const amountAtomic = 1_000_000
 process.env.GOAL_DIGGER_CUSTOM_SIGNET = '1'
@@ -52,7 +52,7 @@ try {
     if (saved.payoutId !== payoutId) throw new Error('The payout journal has a different ID.')
     result = await executePayoutTransfer({ account, saved,
       saveRecord: record => fs.writeFileSync(recordPath, JSON.stringify(record, null, 2), { mode: 0o600 }) })
-  } else if (mode === 'deposit-status') {
+  } else if (mode === 'deposit-status' || mode === 'payout-status') {
     const recipientId = process.argv[3]
     if (!recipientId?.startsWith('sbc:wvout:') || recipientId.length > 200) throw new Error('Invalid deposit recipient.')
     await account.refreshWallet()
@@ -62,7 +62,7 @@ try {
       assetId,
       transfers: transfers.filter(t => t.recipientId === recipientId).map(t => ({
         recipientId: t.recipientId, kind: t.kind, status: t.status,
-        txid: t.txid, assignments: t.assignments
+        txid: t.txid, assignments: t.assignments, requestedAssignment: t.requestedAssignment
       }))
     }
   } else if (mode === 'deposit') {
