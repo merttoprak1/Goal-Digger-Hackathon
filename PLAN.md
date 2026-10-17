@@ -36,10 +36,10 @@ QVAC assesses evidence against the declared rules. Document appearance alone doe
 | Owner | Responsibility |
 |---|---|
 | Mert | Local QVAC, RGB node, integration endpoints, and the integrated demo |
-| Teammate 2 | React interface, challenge forms, evidence submission, and pool display |
-| Teammate 3 | Challenge rules, SQLite, stake records, deadlines, and settlement logic |
+| Vesim | React interface, challenge forms, evidence submission, and pool display |
+| Ege | Challenge rules, SQLite, stake records, deadlines, and settlement logic |
 
-Assign the remaining names before implementation. QVAC and the RGB node run on Mert's laptop. Integrate the frontend and backend there for the demo.
+QVAC and the RGB node run on Mert's laptop. Integrate the frontend and backend there for the demo.
 
 Agree on the API and example responses first. Teammates can develop against explicit fixtures until the local integrations work.
 
