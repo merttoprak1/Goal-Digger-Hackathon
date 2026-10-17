@@ -9,8 +9,11 @@ import {
   useLocation,
 } from "react-router";
 
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
+
 import type { Route } from "./+types/root";
 import { Avatar } from "~/components/avatar";
+import { EASE } from "~/lib/motion";
 import { PROTOCOL_STATUS } from "~/lib/mock-store";
 import "./app.css";
 
@@ -195,12 +198,25 @@ function AppFooter() {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
+
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <AppHeader />
-      <Outlet />
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={pathname}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.18, ease: EASE }}
+          className="flex flex-1 flex-col"
+        >
+          <Outlet />
+        </motion.div>
+      </AnimatePresence>
       <AppFooter />
-    </>
+    </MotionConfig>
   );
 }
 

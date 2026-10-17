@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { AnimatePresence, motion } from "motion/react";
 
 import type { Route } from "./+types/challenge-new";
+import { MessageIn, TypingBubble } from "~/components/chat";
 import { Icon } from "~/components/icon";
 import { createChallenge } from "~/lib/api";
 
@@ -158,7 +160,7 @@ function GoalyHeader() {
 
 function GoalyBubble({ message }: { message: ChatMessage }) {
   return (
-    <div className="chat-bubble-tail-left rounded-2xl border border-slate-200/90 bg-slate-50 p-3.5 shadow-sm">
+    <MessageIn className="chat-bubble-tail-left rounded-2xl border border-slate-200/90 bg-slate-50 p-3.5 shadow-sm">
       <p className="text-xs leading-relaxed font-medium text-slate-700">
         {message.text}
       </p>
@@ -184,13 +186,13 @@ function GoalyBubble({ message }: { message: ChatMessage }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </MessageIn>
   );
 }
 
 function UserBubble({ message }: { message: ChatMessage }) {
   return (
-    <div className="max-w-[92%] self-end rounded-2xl rounded-br-sm bg-indigo-600 p-3 text-xs text-white shadow-sm">
+    <MessageIn className="max-w-[92%] self-end rounded-2xl rounded-br-sm bg-indigo-600 p-3 text-xs text-white shadow-sm">
       <p className="leading-relaxed font-medium">{message.text}</p>
       <div className="mt-1.5 flex items-center justify-end gap-1">
         <span className="font-mono text-[9px] text-indigo-200">
@@ -198,7 +200,7 @@ function UserBubble({ message }: { message: ChatMessage }) {
         </span>
         <Icon name="done_all" className="text-[13px] text-indigo-200" />
       </div>
-    </div>
+    </MessageIn>
   );
 }
 
@@ -216,6 +218,7 @@ export default function ChallengeNew() {
   const [horizonDays, setHorizonDays] = useState(5);
   const [pending, setPending] = useState<"idle" | "draft" | "deploy">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
 
   const nextId = useRef(GREETING.length + 1);
   const timers = useRef<number[]>([]);
@@ -234,7 +237,7 @@ export default function ChallengeNew() {
   useEffect(() => {
     const feed = feedRef.current;
     if (feed && stickToBottom.current) feed.scrollTop = feed.scrollHeight;
-  }, [messages]);
+  }, [messages, typing]);
 
   function pinIfAtBottom() {
     const feed = feedRef.current;
@@ -249,6 +252,7 @@ export default function ChallengeNew() {
 
     setInput("");
     pinIfAtBottom();
+    setTyping(true);
     setMessages((current) => [
       ...current,
       { id: nextId.current++, from: "user", text },
@@ -256,6 +260,7 @@ export default function ChallengeNew() {
 
     const timer = window.setTimeout(() => {
       pinIfAtBottom();
+      setTyping(false);
       setMessages((current) => [
         ...current,
         {
@@ -382,6 +387,14 @@ export default function ChallengeNew() {
                 <UserBubble key={message.id} message={message} />
               ),
             )}
+            <AnimatePresence>
+              {typing ? (
+                <TypingBubble
+                  key="typing"
+                  label="Goaly is drafting the DLC terms…"
+                />
+              ) : null}
+            </AnimatePresence>
           </section>
 
           <section className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
@@ -823,9 +836,10 @@ export default function ChallengeNew() {
                 ) : null}
                 Save Draft
               </button>
-              <button
+              <motion.button
                 type="button"
                 disabled={pending !== "idle"}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => submit("deploy")}
                 className="flex flex-[1.6] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -837,7 +851,7 @@ export default function ChallengeNew() {
                 {pending === "deploy"
                   ? "Deploying DLC…"
                   : "Lock Stake & Deploy DLC"}
-              </button>
+              </motion.button>
             </div>
 
             <p className="mt-3 text-center text-[11px] font-medium text-slate-400">

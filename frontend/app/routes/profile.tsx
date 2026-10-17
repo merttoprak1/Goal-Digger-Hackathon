@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { AnimatePresence, motion } from "motion/react";
 
 import type { Route } from "./+types/profile";
 import { Avatar } from "~/components/avatar";
@@ -12,6 +13,7 @@ import type {
   UserProfile,
   WalletBalance,
 } from "~/lib/contracts";
+import { EASE } from "~/lib/motion";
 import { ACTION_TONE, BADGE_TONE, ICON_TILE, NOTE_TONE } from "~/lib/tones";
 
 export function meta({}: Route.MetaArgs) {
@@ -126,9 +128,14 @@ function ProfileHero({ profile }: { profile: UserProfile }) {
   );
 }
 
-function StatCard({ stat }: { stat: ProfileStat }) {
+function StatCard({ stat, index }: { stat: ProfileStat; index: number }) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.07, ease: EASE }}
+      className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm"
+    >
       <div className="flex items-start justify-between gap-3">
         <span className="text-xs font-bold tracking-wider text-slate-500 uppercase">
           {stat.label}
@@ -152,13 +159,19 @@ function StatCard({ stat }: { stat: ProfileStat }) {
       <p className={`mt-2 text-xs font-semibold ${NOTE_TONE[stat.noteTone]}`}>
         {stat.note}
       </p>
-    </div>
+    </motion.div>
   );
 }
 
-function StakeCard({ stake }: { stake: ProfileStake }) {
+function StakeCard({ stake, index }: { stake: ProfileStake; index: number }) {
   return (
-    <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:shadow-md">
+    <motion.article
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.07, ease: EASE }}
+      whileHover={{ y: -2 }}
+      className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md"
+    >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3.5">
           <span
@@ -278,7 +291,7 @@ function StakeCard({ stake }: { stake: ProfileStake }) {
           ))}
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }
 
@@ -432,8 +445,8 @@ export default function Profile({ loaderData }: Route.ComponentProps) {
       <ProfileHero profile={profile} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {stats.map((stat) => (
-          <StatCard key={stat.id} stat={stat} />
+        {stats.map((stat, index) => (
+          <StatCard key={stat.id} stat={stat} index={index} />
         ))}
       </div>
 
@@ -470,29 +483,39 @@ export default function Profile({ loaderData }: Route.ComponentProps) {
             })}
           </div>
 
-          {tab === "active" ? (
-            <div className="flex flex-col gap-4">
-              {stakes.map((stake) => (
-                <StakeCard key={stake.id} stake={stake} />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-              <Icon
-                name={tab === "settled" ? "emoji_events" : "inventory_2"}
-                className="text-[32px] text-slate-300"
-              />
-              <p className="mt-3 text-sm font-bold text-slate-700">
-                {tab === "settled"
-                  ? `${profile.tabs.settledWon} settled challenges`
-                  : `${profile.tabs.createdPools} created pools`}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                This list is wired to the API response — the history view is not
-                designed yet.
-              </p>
-            </div>
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2, ease: EASE }}
+            >
+              {tab === "active" ? (
+                <div className="flex flex-col gap-4">
+                  {stakes.map((stake, index) => (
+                    <StakeCard key={stake.id} stake={stake} index={index} />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+                  <Icon
+                    name={tab === "settled" ? "emoji_events" : "inventory_2"}
+                    className="text-[32px] text-slate-300"
+                  />
+                  <p className="mt-3 text-sm font-bold text-slate-700">
+                    {tab === "settled"
+                      ? `${profile.tabs.settledWon} settled challenges`
+                      : `${profile.tabs.createdPools} created pools`}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    This list is wired to the API response — the history view is
+                    not designed yet.
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         <div className="flex flex-col gap-5 lg:col-span-4">

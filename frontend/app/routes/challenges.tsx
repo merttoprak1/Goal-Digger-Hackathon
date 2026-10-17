@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { motion } from "motion/react";
 
 import type { Route } from "./+types/challenges";
+import { MessageIn, StatusLabel, TypingDots } from "~/components/chat";
 import { fetchChallengesSnapshot } from "~/lib/api";
+import { EASE } from "~/lib/motion";
 import { POOL_TONE, proofHint, STATUS_BADGE } from "~/lib/challenge-view";
 import type {
   ArbiterProfile,
@@ -70,15 +73,21 @@ const PRESETS = [
 function ChallengeCard({
   challenge,
   onAction,
+  index,
 }: {
   challenge: Challenge;
   onAction: (challenge: Challenge) => void;
+  index: number;
 }) {
   const { status, action } = challenge;
 
   return (
-    <article
-      className={`group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md ${CARD_HOVER[status]}`}
+    <motion.article
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, delay: index * 0.06, ease: EASE }}
+      whileHover={{ y: -3 }}
+      className={`group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md ${CARD_HOVER[status]}`}
     >
       <div>
         <div className="mb-3.5 flex items-center justify-between">
@@ -157,7 +166,7 @@ function ChallengeCard({
           )}
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }
 
@@ -169,7 +178,7 @@ type ChatMessage = {
 
 function GoalyBubble({ text }: { text: string }) {
   return (
-    <div className="chat-bubble-tail-left rounded-2xl border border-slate-200/90 bg-slate-50 p-3.5 shadow-sm transition-all duration-200">
+    <MessageIn className="chat-bubble-tail-left rounded-2xl border border-slate-200/90 bg-slate-50 p-3.5 shadow-sm">
       <div className="mb-1.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] font-bold text-indigo-700">Goaly</span>
@@ -182,13 +191,13 @@ function GoalyBubble({ text }: { text: string }) {
       <p className="text-xs leading-relaxed font-medium text-slate-700">
         &ldquo;{text}&rdquo;
       </p>
-    </div>
+    </MessageIn>
   );
 }
 
 function UserBubble({ text }: { text: string }) {
   return (
-    <div className="max-w-[90%] self-end rounded-2xl rounded-br-sm bg-indigo-600 p-3 text-xs text-white shadow-sm transition-all duration-200">
+    <MessageIn className="max-w-[90%] self-end rounded-2xl rounded-br-sm bg-indigo-600 p-3 text-xs text-white shadow-sm">
       <div className="mb-1 flex items-center justify-between gap-3">
         <span className="text-[10px] font-bold tracking-wide text-indigo-200 uppercase">
           You (Challenger)
@@ -196,7 +205,7 @@ function UserBubble({ text }: { text: string }) {
         <span className="font-mono text-[9px] text-indigo-200">Sent</span>
       </div>
       <p className="leading-relaxed font-medium">{text}</p>
-    </div>
+    </MessageIn>
   );
 }
 
@@ -209,24 +218,8 @@ function TypingIndicator({
 }) {
   return (
     <div className="flex items-center gap-2 pl-2 text-[11px] font-medium text-slate-400">
-      <div
-        className={`flex items-center gap-1 rounded-full px-2 py-1 ${
-          working ? "border border-indigo-100 bg-indigo-50" : "bg-slate-100"
-        }`}
-      >
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-600" />
-        <span
-          className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-600"
-          style={{ animationDelay: "150ms" }}
-        />
-        <span
-          className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-600"
-          style={{ animationDelay: "300ms" }}
-        />
-      </div>
-      <span className={working ? "font-semibold text-indigo-600" : undefined}>
-        {working ? "Goaly is computing DLC oracle parameters..." : idleText}
-      </span>
+      <TypingDots active={working} />
+      <StatusLabel working={working} idleText={idleText} />
     </div>
   );
 }
@@ -538,10 +531,11 @@ export default function Challenges({ loaderData }: Route.ComponentProps) {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {challenges.map((challenge) => (
+            {challenges.map((challenge, index) => (
               <ChallengeCard
                 key={challenge.id}
                 challenge={challenge}
+                index={index}
                 onAction={handleAction}
               />
             ))}

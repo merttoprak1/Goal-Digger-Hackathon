@@ -120,10 +120,11 @@ onto white panels via `mix-blend-multiply`.
 ```
 app/
   app.css                 Tailwind entry, DaisyUI theme, mascot + bubble CSS
-  root.tsx                HTML shell, header nav, footer, error boundary, HydrateFallback
+  root.tsx                HTML shell, header nav, footer, route transitions, error boundary
   routes.ts               Route table
   components/
     avatar.tsx            Facebook-style placeholder user avatar
+    chat.tsx              Shared motion primitives for both arbiter chats
     icon.tsx              Material Symbols `Icon` wrapper
     coming-soon.tsx       Placeholder for screens still to be designed
   lib/
@@ -131,6 +132,7 @@ app/
     api.ts                API client (mock-aware, throws typed ApiError)
     mock-store.ts         In-memory fake backend with seed data
     challenge-view.ts     Shared status/pool colour maps for challenge cards
+    motion.ts             Shared easing curve for every transition
     tones.ts              Shared accent maps for tiles, badges, notes and actions
   routes/
     home.tsx              Redirects to /challenges (the design has no landing page)
@@ -207,6 +209,27 @@ defaults, which is why the markup reads like the design handoff.
 `.chat-bubble-tail-left` speech-bubble tail and the `.mascot-alive` /
 `.mascot-talking` mascot animations (both disabled under
 `prefers-reduced-motion`).
+
+## Motion
+
+Animation is [Motion](https://motion.dev) — the package is published as `motion`
+and React components come from `motion/react` — plus plain CSS for everything
+that does not need JavaScript.
+
+**Motion handles:** route transitions (`root.tsx`), chat bubbles easing in, the
+“Goaly is typing” bubble, the arena card stagger with its hover lift, and the
+profile tab cross-fade.
+
+**CSS handles:** hover colours, the mascot float/bob, status pings, and the
+`.chat-feed` scrollbar.
+
+`MotionConfig reducedMotion="user"` wraps the app, so visitors who ask their
+system for less motion get the same layout without the transforms — matching the
+`prefers-reduced-motion` guard already on the CSS animations.
+
+> Cost: Motion lands in its own ~46 kB gzip chunk, imported by the root route, so
+> it loads on first paint. If that ever needs trimming, the route transition in
+> `root.tsx` is the first thing to drop.
 
 ## Not built yet
 
