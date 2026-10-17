@@ -217,11 +217,17 @@ and React components come from `motion/react` — plus plain CSS for everything
 that does not need JavaScript.
 
 **Motion handles:** route transitions (`root.tsx`), the header nav pill gliding
-between tabs, chat bubbles easing in, the “Goaly is typing” bubble, the arena
-card stagger with its hover lift, and the profile tab cross-fade.
+between tabs, the stake chips and profile tabs doing the same, the deploy stage
+checklist that runs before the arena route changes, the counts in
+`components/count-up.tsx` (profile stats, wallet balance, and the summary XP as
+the stake is edited), the arbiter panel flashing when a card prefills it, chat
+bubbles easing in, the “Goaly is typing” bubble, the arena card stagger with its
+hover lift, the profile tab cross-fade, the spring check badge on the selected
+visibility card, and the mascot squash on poke.
 
-**CSS handles:** hover colours, the mascot float/bob, status pings, and the
-`.chat-feed` scrollbar.
+**CSS handles:** hover colours, the mascot float/bob, status pings, the
+`.chat-feed` scrollbar, and the `.skeleton-shimmer` sweep on the hydration
+skeleton.
 
 `MotionConfig reducedMotion="user"` wraps the app, so visitors who ask their
 system for less motion get the same layout without the transforms — matching the
