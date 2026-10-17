@@ -70,7 +70,8 @@ It then [signed and returned that token](docs/WDK-RETURN.md) to the original nod
 
 The [private deposit endpoint](docs/VAULT-API.md) creates WDK invoices with saved payment IDs on localhost port 4001.
 It requires a backend token. GET `/vault/deposits/:paymentId` checks the actual incoming transfer and reports its payment status.
-Challenge stake credit and payout endpoints remain future steps.
+The [stake deposit adapter](docs/STAKE-DEPOSITS.md) binds invoices to participants and records confirmed contributions once.
+Ege's challenge API still needs to call it with its eligibility and deadline checks. Payout endpoints remain future steps.
 
 ## Local RGB: second integration step
 

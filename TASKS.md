@@ -17,6 +17,7 @@ Branch: `qvac-RGB`. Complete one task, check it, then commit and push before sta
 - [x] Sign and send 1 test USDT back through WDK, with settlement on both wallets.
 - [x] Add a private WDK deposit invoice endpoint with durable payment records.
 - [x] Add authenticated deposit status checks against matching WDK incoming transfers.
+- [x] Add a backend adapter for immutable stake bindings and one credit per settled deposit.
 
 ## 1. Add one QVAC request endpoint (complete)
 
@@ -108,4 +109,5 @@ The [WDK deposit record](docs/WDK-DEPOSIT.md) confirms 1 test USDT settled and s
 The [return record](docs/WDK-RETURN.md) confirms local signing and the completed return transfer. The original node holds 99 test USDT again.
 The [private vault endpoint](docs/VAULT-API.md) creates and saves invoices. Repeated payment IDs return the same invoice.
 The deposit status endpoint checks the actual received asset, amount, recipient, and confirmed transfer.
-Next, connect confirmed deposits to challenge stake records in Ege's backend, with at most one credit per payment ID.
+The [stake adapter](docs/STAKE-DEPOSITS.md) saves one credit per confirmed deposit, with retry and restart checks.
+Ege's backend branch currently contains only documents. Its future challenge API must call the adapter with trusted participant, eligibility, and deadline checks.
