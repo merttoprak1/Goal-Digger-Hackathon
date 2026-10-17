@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* DaisyUI 5 is loaded as a Tailwind plugin. `--default` is the theme used when
+   no `data-theme` is set; `--prefersdark` follows the OS setting. Add more
+   themes to the list below and they become available with `data-theme="name"`. */
+@plugin "daisyui" {
+  themes:
+    light --default,
+    dark --prefersdark;
+}
+
+@theme {
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+html {
+  color-scheme: light dark;
+}
