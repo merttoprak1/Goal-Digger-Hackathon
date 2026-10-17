@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/profile";
+import { Avatar } from "~/components/avatar";
 import { Icon } from "~/components/icon";
 import { fetchProfileSnapshot } from "~/lib/api";
 import type {
@@ -49,13 +50,10 @@ function ProfileHero({ profile }: { profile: UserProfile }) {
       <div className="flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-center">
         <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
           <div className="relative shrink-0">
-            <div className="h-24 w-24 overflow-hidden rounded-full bg-indigo-50 ring-4 ring-indigo-100">
-              <img
-                src="/panda-avatar.png"
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            </div>
+            <Avatar
+              label={`${profile.name} profile photo`}
+              className="h-24 w-24 ring-4 ring-indigo-100"
+            />
             <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-2.5 py-0.5 text-[10px] font-bold tracking-wide whitespace-nowrap text-white uppercase">
               {profile.level}
             </span>

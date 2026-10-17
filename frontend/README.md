@@ -63,7 +63,8 @@ Shared visual language:
 - **Icons:** Material Symbols Outlined (loaded with `display=block`, rendered
   through `app/components/icon.tsx`). The arena keeps its emoji labels.
 - **Header:** one row — logo, centered nav pills (Challenges / Create Challenge /
-  Profile), a Mutinynet status pill, and the panda avatar linking to `/profile`.
+  Profile), a Mutinynet status pill, and the placeholder profile avatar linking
+  to `/profile`.
 
 ### `/challenges` — the arena
 
@@ -93,12 +94,17 @@ A summary card totals the stake, XP and default outcome, then **Save Draft** or
 
 ### `/profile` — user profile
 
-Hero with the avatar and a copy-address control, three stat cards (win rate,
-total pool, streak), tabs for Active / Settled / Created, the stake cards on the
-left (`lg:col-span-8`), and a right column (`lg:col-span-4`) with the Goaly
-arbiter card and the wallet balance breakdown.
+Hero with the placeholder avatar and a copy-address control, three stat cards
+(win rate, total pool, streak), tabs for Active / Settled / Created, the stake
+cards on the left (`lg:col-span-8`), and a right column (`lg:col-span-4`) with
+the Goaly arbiter card and the wallet balance breakdown.
 
-### Mascot assets
+### Avatars and mascot assets
+
+User avatars (`app/components/avatar.tsx`) render a Facebook-style placeholder —
+a person silhouette drawn as inline SVG on a grey disc — so the UI never shows a
+broken or mismatched photo. The Goaly arbiter and the header brand mark still use
+the mascot art.
 
 `public/goaly.png` (standing arbiter) and `public/panda-avatar.png` (header logo)
 were trimmed to their content bounding box so they fill their frames and blend
@@ -112,6 +118,7 @@ app/
   root.tsx                HTML shell, header nav, footer, error boundary, HydrateFallback
   routes.ts               Route table
   components/
+    avatar.tsx            Facebook-style placeholder user avatar
     icon.tsx              Material Symbols `Icon` wrapper
     coming-soon.tsx       Placeholder for screens still to be designed
   lib/
@@ -130,7 +137,7 @@ app/
     ledger.tsx            Pool Ledger (placeholder)
 public/
   goaly.png               Arbiter mascot
-  panda-avatar.png        Header logo and avatar
+  panda-avatar.png        Header brand mark
 ```
 
 Path alias: `~/*` → `app/*` (via `vite-tsconfig-paths`).

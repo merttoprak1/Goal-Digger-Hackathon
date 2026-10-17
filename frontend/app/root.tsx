@@ -10,6 +10,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import { Avatar } from "~/components/avatar";
 import { PROTOCOL_STATUS } from "~/lib/mock-store";
 import "./app.css";
 
@@ -144,13 +145,9 @@ function AppHeader() {
             <Link
               to="/profile"
               title="Your profile"
-              className="relative h-9 w-9 shrink-0 rounded-full ring-2 ring-indigo-200 ring-offset-1 transition hover:ring-indigo-400"
+              className="relative block h-9 w-9 shrink-0 rounded-full ring-2 ring-indigo-200 ring-offset-1 transition hover:ring-indigo-400"
             >
-              <img
-                src="/panda-avatar.png"
-                alt="Your profile"
-                className="h-full w-full rounded-full object-cover"
-              />
+              <Avatar label="Your profile" className="h-full w-full" />
               <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
             </Link>
           </div>
