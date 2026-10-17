@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from "react";
 import {
   isRouteErrorResponse,
   Link,
   Links,
   Meta,
-  NavLink,
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -25,17 +24,16 @@ export const links: Route.LinksFunction = () => [
     rel: "stylesheet",
     href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap",
   },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block",
+  },
 ];
 
-/**
- * The one addition to the design: the header in the mockup has no navigation,
- * so the account chip doubles as the menu between screens.
- */
-const ACCOUNT_LINKS = [
+const NAV = [
   { to: "/challenges", label: "Challenges" },
   { to: "/challenges/new", label: "Create Challenge" },
-  { to: "/proofs", label: "My Proofs" },
-  { to: "/ledger", label: "Pool Ledger" },
+  { to: "/profile", label: "Profile" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -66,100 +64,100 @@ export function HydrateFallback() {
   );
 }
 
-function AccountMenu() {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+function NavLinks({ orientation }: { orientation: "row" | "scroll" }) {
+  const { pathname } = useLocation();
 
-  useEffect(() => {
-    if (!open) return;
-
-    function onPointerDown(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+  function isActive(to: string) {
+    // `/challenges/new` owns its own tab, so it must not light up `/challenges`.
+    if (to === "/challenges") {
+      return (
+        pathname === "/challenges" ||
+        (pathname.startsWith("/challenges/") && pathname !== "/challenges/new")
+      );
     }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+    return pathname === to || pathname.startsWith(`${to}/`);
+  }
 
   return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title="Account"
-        className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm transition duration-200 hover:border-indigo-300 hover:bg-indigo-100"
-      >
-        <span className="text-xs font-bold tracking-tight">GD</span>
-        <span className="absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
-        >
-          {ACCOUNT_LINKS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                [
-                  "block rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
-                  isActive
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
-                ].join(" ")
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </div>
-      )}
-    </div>
+    <nav
+      aria-label="Primary"
+      className={
+        orientation === "row"
+          ? "flex items-center gap-1"
+          : "mt-3 flex items-center gap-1 overflow-x-auto pb-0.5"
+      }
+    >
+      {NAV.map((item) => {
+        const active = isActive(item.to);
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            aria-current={active ? "page" : undefined}
+            className={[
+              "rounded-full px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap transition",
+              active
+                ? "bg-indigo-100/80 text-indigo-700"
+                : "text-slate-500 hover:bg-slate-100 hover:text-slate-900",
+            ].join(" ")}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
 function AppHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 px-6 py-3.5 backdrop-blur-md transition-all lg:px-12">
-      <div className="mx-auto flex max-w-7xl items-center justify-between">
-        <Link
-          to="/challenges"
-          className="group flex items-center gap-3 transition"
-        >
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-indigo-50/50 shadow-sm transition-transform duration-200 group-hover:scale-105">
-            <img
-              src="/panda-avatar.png"
-              alt="Goal Digger panda mascot"
-              className="h-full w-full object-cover"
-            />
-          </div>
-          <span className="text-xl font-extrabold tracking-tight text-slate-900 transition-colors group-hover:text-indigo-600">
-            Goal Digger
-          </span>
-        </Link>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-slate-200/60 bg-slate-100/80 px-3 py-1.5 text-xs font-semibold text-slate-500">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-600" />
-            <span className="font-medium text-slate-700">
-              Bitcoin Mutinynet
+    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 px-6 py-3.5 backdrop-blur-md lg:px-12">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex items-center justify-between gap-4 md:grid md:grid-cols-[1fr_auto_1fr]">
+          <Link
+            to="/challenges"
+            className="group flex items-center gap-3 transition"
+          >
+            <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-indigo-50/50 shadow-sm transition-transform duration-200 group-hover:scale-105">
+              <img
+                src="/panda-avatar.png"
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <span className="text-xl font-extrabold tracking-tight text-slate-900 transition-colors group-hover:text-indigo-600">
+              Goal Digger
             </span>
+          </Link>
+
+          <div className="hidden md:block">
+            <NavLinks orientation="row" />
           </div>
-          <AccountMenu />
+
+          <div className="flex items-center justify-end gap-3">
+            <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 sm:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">
+                Mutinynet
+              </span>
+            </div>
+            <Link
+              to="/profile"
+              title="Your profile"
+              className="relative h-9 w-9 shrink-0 rounded-full ring-2 ring-indigo-200 ring-offset-1 transition hover:ring-indigo-400"
+            >
+              <img
+                src="/panda-avatar.png"
+                alt="Your profile"
+                className="h-full w-full rounded-full object-cover"
+              />
+              <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="md:hidden">
+          <NavLinks orientation="scroll" />
         </div>
       </div>
     </header>

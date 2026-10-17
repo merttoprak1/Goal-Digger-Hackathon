@@ -6,6 +6,7 @@ import {
   type ChallengesSnapshot,
   type CreateChallengeRequest,
   type HealthResponse,
+  type ProfileSnapshot,
 } from "./contracts";
 import * as mocks from "./mock-store";
 
@@ -94,6 +95,15 @@ export async function fetchChallenges(): Promise<Challenge[]> {
   }
   const { challenges } = await request<ChallengeListResponse>("/challenges");
   return challenges;
+}
+
+/** Everything the Profile screen needs in one round trip. */
+export async function fetchProfileSnapshot(): Promise<ProfileSnapshot> {
+  if (MOCKS_ENABLED) {
+    await delay();
+    return mocks.getProfileSnapshot();
+  }
+  return request<ProfileSnapshot>("/profile/snapshot");
 }
 
 export async function fetchChallenge(id: string): Promise<Challenge | null> {

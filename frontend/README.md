@@ -49,20 +49,54 @@ See [SPA Mode](https://reactrouter.com/how-to/spa) for details.
 
 ## Design
 
-The UI follows the approved **“Goal Digger”** board from the design handoff:
+The UI follows the approved **“Goal Digger”** board from the design handoff and
+covers three screens.
+
+Shared visual language:
 
 - **Surfaces:** `slate-50` page on white cards, hairline `slate-200` borders,
   `rounded-2xl` corners, soft `shadow-sm`.
-- **Brand:** `indigo-600` primary, `violet-600` for open pools, `blue-700` for
-  active, `slate` for drafts.
+- **Brand:** `indigo-600` primary, `violet-600` for arbiter and rollover states,
+  `blue-700` for active, `emerald` for verified/synced states, `slate` for drafts.
 - **Type:** Plus Jakarta Sans throughout, `font-mono` for all stake and pool
   numbers.
-- **Layout:** centered hero, then a 12-column grid — challenge cards on the left
-  (`col-span-7`), the Goaly arbiter panel on the right (`col-span-5`).
+- **Icons:** Material Symbols Outlined (loaded with `display=block`, rendered
+  through `app/components/icon.tsx`). The arena keeps its emoji labels.
+- **Header:** one row — logo, centered nav pills (Challenges / Create Challenge /
+  Profile), a Mutinynet status pill, and the panda avatar linking to `/profile`.
+
+### `/challenges` — the arena
+
+Centered hero, filter row, a 12-column grid with the challenge cards on the left
+(`col-span-7`) and the Goaly arbiter panel on the right (`col-span-5`), then the
+dark call-to-action strip.
 
 The arbiter panel is interactive: the mascot reacts when clicked, the preset
 chips and the card action buttons pre-fill the proposal form, and proposing a
 contract appends your message and a simulated arbiter reply.
+
+### `/challenges/new` — create custom challenge
+
+A chat-driven DLC contract builder. Goaly sits on the left (`lg:col-span-5`) with
+the greeting, quick-prompt chips and a natural-language input; the builder is on
+the right (`lg:col-span-7`):
+
+- **Step 1 — visibility & ruleset:** Public Arena (peer-to-peer counter-bets) or
+  Solo Discipline.
+- **Failure forfeit:** donate to a verified charity, burn the stake
+  (`OP_RETURN`), or roll over to the next weekly goal vault.
+- **Step 2 — stake vault & proof parameters:** stake amount with `1/5/10/25/MAX`
+  shortcuts, the challenge horizon, and the proof oracle row.
+
+A summary card totals the stake, XP and default outcome, then **Save Draft** or
+**Lock Stake & Deploy DLC** posts to the API and returns to the arena.
+
+### `/profile` — user profile
+
+Hero with the avatar and a copy-address control, three stat cards (win rate,
+total pool, streak), tabs for Active / Settled / Created, the stake cards on the
+left (`lg:col-span-8`), and a right column (`lg:col-span-4`) with the Goaly
+arbiter card and the wallet balance breakdown.
 
 ### Mascot assets
 
@@ -75,38 +109,41 @@ onto white panels via `mix-blend-multiply`.
 ```
 app/
   app.css                 Tailwind entry, DaisyUI theme, mascot + bubble CSS
-  root.tsx                HTML shell, header, footer, error boundary, HydrateFallback
+  root.tsx                HTML shell, header nav, footer, error boundary, HydrateFallback
   routes.ts               Route table
   components/
+    icon.tsx              Material Symbols `Icon` wrapper
     coming-soon.tsx       Placeholder for screens still to be designed
   lib/
     contracts.ts          API types + zod schema for the create form
     api.ts                API client (mock-aware, throws typed ApiError)
     mock-store.ts         In-memory fake backend with seed data
     challenge-view.ts     Shared status/pool colour maps for challenge cards
+    tones.ts              Shared accent maps for tiles, badges, notes and actions
   routes/
     home.tsx              Redirects to /challenges (the design has no landing page)
     challenges.tsx        The challenge board + Goaly arbiter panel
     challenge.tsx         Challenge detail
-    challenge-new.tsx     Create challenge (placeholder)
+    challenge-new.tsx     Create custom challenge (chat-driven builder)
+    profile.tsx           User profile, stakes, arbiter and wallet
     proofs.tsx            My Proofs (placeholder)
     ledger.tsx            Pool Ledger (placeholder)
 public/
   goaly.png               Arbiter mascot
-  panda-avatar.png        Header logo
+  panda-avatar.png        Header logo and avatar
 ```
 
 Path alias: `~/*` → `app/*` (via `vite-tsconfig-paths`).
 
-The design's header has no navigation, so the **GD account chip** in the header
-opens a small menu linking to every screen. That menu is the one deliberate
-addition to the mockup.
+The design's boards have no shared navigation, so the header adds centered nav
+pills to the three screens plus a Mutinynet status pill. `/proofs` and `/ledger`
+still exist but are not linked, since their boards are not built yet.
 
 ## Talking to the API
 
 `app/lib/api.ts` is the only place that talks to the backend. It exposes
 `fetchHealth`, `fetchChallengesSnapshot`, `fetchChallenges`, `fetchChallenge`,
-and `createChallenge`.
+`fetchProfileSnapshot`, and `createChallenge`.
 
 **Right now it runs against in-memory mocks** (`app/lib/mock-store.ts`), so the
 UI works before the Express API exists. Reset the seed data from the browser
@@ -161,10 +198,11 @@ defaults, which is why the markup reads like the design handoff.
 
 ## Not built yet
 
-- Create challenge form (the `+ Custom Challenge` card links to a placeholder)
 - My Proofs / evidence submission and verdict display
 - Pool Ledger
-- Real counter-stake and settlement wiring (the proposal form is UI-only today)
+- Real counter-stake and settlement wiring (the arbiter panel and the proposal
+  and create forms are UI-only today)
+- Persistence — mocks live in memory, so a reload resets everything
 
 ## Known warnings
 
