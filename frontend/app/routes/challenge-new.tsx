@@ -6,6 +6,7 @@ import type { Route } from "./+types/challenge-new";
 import { MessageIn, TypingBubble } from "~/components/chat";
 import { Icon } from "~/components/icon";
 import { createChallenge } from "~/lib/api";
+import { EASE } from "~/lib/motion";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Create Challenge · Goal Digger" }];
@@ -116,6 +117,23 @@ type ChatMessage = {
 type VisibilityId = "public" | "solo";
 type ForfeitId = "donate" | "burn" | "rollover";
 
+/* --------------------------------- deploy -------------------------------- */
+
+/**
+ * The stages a real deploy would walk through. DLCs are not implemented yet, so
+ * these are purely for the demo — but they make the flow read as one continuous
+ * action instead of a spinner that suddenly changes the page.
+ */
+const DEPLOY_STEPS = [
+  "Signing DLC attestation with the Goaly oracle key",
+  "Broadcasting the funding transaction to Mutinynet",
+  "Locking your stake in Taproot escrow",
+  "DLC locked — waiting for the first oracle tick",
+];
+
+/** Block height the deploy readout counts up from, one per stage. */
+const DEPLOY_BLOCK = 2_847_193;
+
 /* --------------------------------- helpers ------------------------------- */
 
 /** `+03:00`-style offset, which is what the API schema expects. */
@@ -204,6 +222,62 @@ function UserBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+function DeployStep({
+  label,
+  state,
+}: {
+  label: string;
+  state: "pending" | "active" | "done";
+}) {
+  return (
+    <div
+      className={`flex items-center gap-2 text-[11px] font-semibold transition-colors duration-300 ${
+        state === "pending" ? "text-indigo-300" : "text-indigo-800"
+      }`}
+    >
+      <span className="grid h-4 w-4 shrink-0 place-items-center">
+        <AnimatePresence mode="wait" initial={false}>
+          {state === "done" ? (
+            <motion.span
+              key="done"
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.4, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 520, damping: 26 }}
+            >
+              <Icon
+                name="check_circle"
+                filled
+                className="text-[14px] text-emerald-500"
+              />
+            </motion.span>
+          ) : state === "active" ? (
+            <motion.span
+              key="active"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <span className="loading loading-spinner loading-xs text-indigo-600" />
+            </motion.span>
+          ) : (
+            <motion.span
+              key="pending"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="h-1.5 w-1.5 rounded-full bg-indigo-200"
+            />
+          )}
+        </AnimatePresence>
+      </span>
+      {label}
+    </div>
+  );
+}
+
 /* --------------------------------- screen -------------------------------- */
 
 export default function ChallengeNew() {
@@ -219,6 +293,7 @@ export default function ChallengeNew() {
   const [pending, setPending] = useState<"idle" | "draft" | "deploy">("idle");
   const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
+  const [step, setStep] = useState(-1);
 
   const nextId = useRef(GREETING.length + 1);
   const timers = useRef<number[]>([]);
@@ -244,6 +319,13 @@ export default function ChallengeNew() {
     if (!feed) return;
     stickToBottom.current =
       feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
+  }
+
+  /** Registers the timer so unmounting mid-deploy cannot resolve it late. */
+  function wait(ms: number) {
+    return new Promise<void>((resolve) => {
+      timers.current.push(window.setTimeout(resolve, ms));
+    });
   }
 
   function send(raw: string) {
@@ -294,6 +376,8 @@ export default function ChallengeNew() {
         ? "OP_RETURN Burn • bc1q…dead0000"
         : "Goal Vault Rollover • +14 days";
 
+  const deployComplete = step >= DEPLOY_STEPS.length;
+
   async function submit(mode: "draft" | "deploy") {
     setError(null);
     setPending(mode);
@@ -305,6 +389,17 @@ export default function ChallengeNew() {
     const deadline = new Date(Date.now() + horizonDays * 86_400_000);
 
     try {
+      if (mode === "deploy") {
+        // Walk the stages, then hold on the completed state long enough for the
+        // tick to land before the route changes.
+        for (let index = 0; index < DEPLOY_STEPS.length; index += 1) {
+          setStep(index);
+          await wait(560);
+        }
+        setStep(DEPLOY_STEPS.length);
+        await wait(560);
+      }
+
       await createChallenge({
         template: "custom",
         creator: CREATOR,
@@ -321,6 +416,7 @@ export default function ChallengeNew() {
           : "Could not create the challenge.",
       );
       setPending("idle");
+      setStep(-1);
     }
   }
 
@@ -818,6 +914,46 @@ export default function ChallengeNew() {
               </div>
             </div>
 
+            <AnimatePresence initial={false}>
+              {pending === "deploy" ? (
+                <motion.div
+                  key="deploy"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: EASE }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-4 flex flex-col gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold tracking-wider text-indigo-700 uppercase">
+                        Deploying DLC
+                      </span>
+                      <span className="font-mono text-[10px] font-semibold text-indigo-500">
+                        Mutinynet · block{" "}
+                        {(DEPLOY_BLOCK + Math.max(0, step)).toLocaleString(
+                          "en-US",
+                        )}
+                      </span>
+                    </div>
+                    {DEPLOY_STEPS.map((label, index) => (
+                      <DeployStep
+                        key={label}
+                        label={label}
+                        state={
+                          index < step
+                            ? "done"
+                            : index === step
+                              ? "active"
+                              : "pending"
+                        }
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
             {error ? (
               <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
                 {error}
@@ -843,14 +979,41 @@ export default function ChallengeNew() {
                 onClick={() => submit("deploy")}
                 className="flex flex-[1.6] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {pending === "deploy" ? (
-                  <span className="loading loading-spinner loading-xs" />
-                ) : (
-                  <Icon name="bolt" className="text-[18px]" />
-                )}
-                {pending === "deploy"
-                  ? "Deploying DLC…"
-                  : "Lock Stake & Deploy DLC"}
+                <AnimatePresence mode="wait" initial={false}>
+                  {pending === "deploy" ? (
+                    <motion.span
+                      key={deployComplete ? "locked" : "deploying"}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.18, ease: EASE }}
+                      className="flex items-center gap-2"
+                    >
+                      {deployComplete ? (
+                        <Icon
+                          name="check_circle"
+                          filled
+                          className="text-[18px]"
+                        />
+                      ) : (
+                        <span className="loading loading-spinner loading-xs" />
+                      )}
+                      {deployComplete ? "DLC Locked" : "Deploying DLC…"}
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="idle"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.18, ease: EASE }}
+                      className="flex items-center gap-2"
+                    >
+                      <Icon name="bolt" className="text-[18px]" />
+                      Lock Stake &amp; Deploy DLC
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </motion.button>
             </div>
 
