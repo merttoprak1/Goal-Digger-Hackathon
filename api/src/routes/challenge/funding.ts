@@ -115,6 +115,9 @@ export function registerFundingRoutes(router: Router, context: ChallengeContext)
     if (opponentId === challenge.creatorId) {
       throw new ApiError(409, "The creator cannot bet against this challenge.", "SELF_BET");
     }
+    if (challenge.visibility === "solo") {
+      throw new ApiError(409, "This challenge does not accept opponent stakes.", "SOLO_CHALLENGE");
+    }
     const parsed = stakeBody.safeParse(req.body);
     if (!parsed.success) {
       throw new ApiError(

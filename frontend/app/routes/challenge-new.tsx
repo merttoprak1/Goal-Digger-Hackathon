@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 
 import type { Route } from "./+types/challenge-new";
 import { Icon } from "~/components/icon";
+import { createAndPayStake } from "~/lib/wallet";
 import { askGoaly } from "~/lib/goaly";
 import { boardSession, createBoardClient } from "~/lib/board";
 
@@ -12,8 +13,12 @@ export function meta({}: Route.MetaArgs) {
 
 /* --------------------------------- config -------------------------------- */
 
-const ORACLE_LABEL = "Apple Health + Camera Feed";
 const HORIZON_OPTIONS = [3, 5, 7, 14];
+
+function localDeadline(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 const VISIBILITY = [
   {
@@ -39,21 +44,21 @@ const FORFEITS = [
     id: "donate" as const,
     emoji: "🎗",
     title: "Donate to Verified Charity",
-    body: "This choice is shown on the form. It is not stored.",
+    body: "This choice is saved with the draft. It does not move funds.",
     badge: null,
   },
   {
     id: "burn" as const,
     emoji: "🔥",
     title: "Burn the Stake (Proof-of-Burn)",
-    body: "This choice is shown on the form. It is not stored.",
+    body: "This choice is saved with the draft. It does not move funds.",
     badge: "Hardcore",
   },
   {
     id: "rollover" as const,
     emoji: "🔄",
     title: "Rollover to Next Week's Goal Vault",
-    body: "This choice is shown on the form. It is not stored.",
+    body: "This choice is saved with the draft. It does not move funds.",
     badge: "Timelock",
   },
 ];
@@ -164,13 +169,25 @@ export default function ChallengeNew() {
 
   const [messages, setMessages] = useState<ChatMessage[]>(GREETING);
   const [input, setInput] = useState("");
-  const [visibility, setVisibility] = useState<VisibilityId>("solo");
+  const [visibility, setVisibility] = useState<VisibilityId>("public");
   const [forfeit, setForfeit] = useState<ForfeitId>("donate");
   const [charity, setCharity] = useState(CHARITIES[0]);
+  const [challengeTitle, setChallengeTitle] = useState("");
+  const [successRule, setSuccessRule] = useState("");
+  const [proofSource, setProofSource] = useState("");
   const [stake, setStake] = useState("5.00");
   const [horizonDays, setHorizonDays] = useState(5);
-  const [pending, setPending] = useState<"idle" | "draft" | "deploy">("idle");
+  const [deadline, setDeadline] = useState(() =>
+    localDeadline(new Date(Date.now() + 5 * 86_400_000)),
+  );
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [participantName, setParticipantName] = useState("");
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    setSignedIn(Boolean(boardSession(localStorage).read()));
+  }, []);
 
   const [chatBusy,setChatBusy]=useState(false);
   const nextId = useRef(GREETING.length + 1);
@@ -194,17 +211,12 @@ export default function ChallengeNew() {
     } finally {setChatBusy(false);}
   }
 
-  const goalText =
-    [...messages].reverse().find((message) => message.from === "user")?.text ??
-    "Custom challenge";
-  const title =
-    goalText.length > 110 ? `${goalText.slice(0, 109)}…` : goalText;
-
   const stakeNumber = Number(stake);
 
-  async function submit(mode: "draft" | "deploy") {
+  async function submit() {
+    if (pending) return;
     setError(null);
-    setPending(mode);
+    setPending(true);
 
     const amount =
       Number.isFinite(stakeNumber) && stakeNumber > 0
@@ -212,30 +224,55 @@ export default function ChallengeNew() {
         : "1";
 
     try {
-      const token = boardSession(localStorage).read();
-      if (!token) {
-        throw new Error(
-          "Create or restore a participant on the Challenges page first.",
-        );
-      }
-      await createBoardClient({
+      const client = createBoardClient({
         baseUrl: import.meta.env.VITE_API_BASE_URL ?? "/api",
-      }).createCustom(token, {
-        title,
-        successRule: goalText,
+      });
+      let token = boardSession(localStorage).read();
+      if (!token) {
+        const name = participantName.trim();
+        if (!name) {
+          throw new Error("Enter your display name. It owns this challenge.");
+        }
+        const created = await client.createSession(name);
+        if (!boardSession(localStorage).save(created.token)) {
+          throw new Error("This browser could not save your participant.");
+        }
+        token = created.token;
+        setSignedIn(true);
+      }
+      const saved = await client.createCustom(token, {
+        title: challengeTitle.trim(),
+        successRule: successRule.trim(),
         stake: amount,
-        horizonDays,
-        proofSource: ORACLE_LABEL,
+        proofDeadline: new Date(deadline).toISOString(),
+        proofSource: proofSource.trim(),
+        visibility,
+        forfeit,
+        charity: forfeit === "donate" ? charity : undefined,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
-      navigate("/challenges");
+      let paymentNotice: string;
+      let paymentError = false;
+      try {
+        paymentNotice = await createAndPayStake({
+          createInvoice: () => client.createStakeInvoice(token!, saved.id),
+          checkPayment: () => client.checkStake(token!, saved.id),
+          storage: localStorage,
+          provider: window.rgb,
+        });
+      } catch (cause) {
+        paymentError = true;
+        paymentNotice = cause instanceof Error ? cause.message : "Wallet approval failed. Retry from your saved challenge.";
+      }
+      // Always open the saved draft, even if payment fails. Never create it twice.
+      navigate(`/challenges/${saved.id}`, { state: { paymentNotice, paymentError } });
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
           : "Could not create the challenge.",
       );
-      setPending("idle");
+      setPending(false);
     }
   }
 
@@ -257,7 +294,7 @@ export default function ChallengeNew() {
         </div>
 
         <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
-          Draft only. Saving does not move funds.
+          Creating a challenge does not move funds.
         </span>
       </div>
 
@@ -266,8 +303,9 @@ export default function ChallengeNew() {
           Create Custom Challenge
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base">
-          Define your milestone and proof terms. Saving creates a live custom draft.
-          Wallet deposits need the challenge backend.
+          Type the title, the success rule, and the proof source. Create
+          challenge asks you to deposit the stake in test USDT. Other people
+          can bet after that payment is confirmed.
         </p>
       </div>
 
@@ -355,6 +393,48 @@ export default function ChallengeNew() {
 
         {/* ------------------------------- step builder ---------------------------- */}
         <div className="flex flex-col gap-5 lg:col-span-7">
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-bold text-slate-900">
+              Write the challenge
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              These three fields are what gets saved. The chat does not create
+              the draft.
+            </p>
+            <label className="mt-4 block text-sm font-semibold text-slate-800">
+              Title
+              <input
+                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal"
+                maxLength={120}
+                value={challengeTitle}
+                onChange={(event) => setChallengeTitle(event.target.value)}
+                placeholder="Wake at 06:30 for 5 days"
+                required
+              />
+            </label>
+            <label className="mt-4 block text-sm font-semibold text-slate-800">
+              Success rule
+              <textarea
+                className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal"
+                maxLength={1000}
+                value={successRule}
+                onChange={(event) => setSuccessRule(event.target.value)}
+                placeholder="Solve the fresh math problem before the deadline."
+                required
+              />
+            </label>
+            <label className="mt-4 block text-sm font-semibold text-slate-800">
+              Proof source
+              <input
+                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal"
+                maxLength={500}
+                value={proofSource}
+                onChange={(event) => setProofSource(event.target.value)}
+                placeholder="A dated photo, a race result, or a server time check."
+                required
+              />
+            </label>
+          </section>
           <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="flex items-center gap-2 text-base font-bold text-slate-900">
@@ -444,9 +524,8 @@ export default function ChallengeNew() {
                 What happens if you miss your deadline?
               </p>
               <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                In solo mode, your stake doesn&apos;t disappear into a black box.
-                If the oracle confirms uncompleted targets, the Discreet Log
-                Contract routes your deposit directly to a public cause.
+                The forfeit choice is saved with the draft. Saving does not move
+                funds.
               </p>
             </div>
 
@@ -593,11 +672,9 @@ export default function ChallengeNew() {
                     type="button"
                     onClick={() => {
                       const index = HORIZON_OPTIONS.indexOf(horizonDays);
-                      setHorizonDays(
-                        HORIZON_OPTIONS[
-                          (index + 1) % HORIZON_OPTIONS.length
-                        ],
-                      );
+                      const days = HORIZON_OPTIONS[(index + 1) % HORIZON_OPTIONS.length];
+                      setHorizonDays(days);
+                      setDeadline(localDeadline(new Date(Date.now() + days * 86_400_000)));
                     }}
                     className="cursor-pointer text-[11px] font-bold text-indigo-600 transition hover:text-indigo-800"
                   >
@@ -605,8 +682,18 @@ export default function ChallengeNew() {
                   </button>
                 </div>
 
+                <label className="mt-3 block text-xs font-bold text-slate-700">
+                  Proof deadline
+                  <input
+                    type="datetime-local"
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal"
+                    value={deadline}
+                    onChange={(event) => setDeadline(event.target.value)}
+                    required
+                  />
+                </label>
                 <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-slate-400">
-                  <span>The draft starts one hour before the proof deadline.</span>
+                  <span>Betting closes one hour and one minute before this deadline.</span>
                 </div>
               </div>
             </div>
@@ -617,7 +704,7 @@ export default function ChallengeNew() {
               </span>
               <div>
                 <p className="text-xs font-bold text-slate-800">
-                  Declared proof source: {ORACLE_LABEL}
+                  Declared proof source: {proofSource.trim() || "Not entered yet"}
                 </p>
                 <p className="text-[10px] text-slate-400">
                   This text is saved with the draft. It does not connect a device.
@@ -662,38 +749,39 @@ export default function ChallengeNew() {
               </p>
             ) : null}
 
-            <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row">
+            {signedIn ? null : (
+              <label className="mt-5 block text-sm font-semibold text-slate-800">
+                Your display name
+                <input
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal"
+                  maxLength={60}
+                  value={participantName}
+                  onChange={(event) => setParticipantName(event.target.value)}
+                  required
+                />
+              </label>
+            )}
+
+            <div className="mt-5 border-t border-slate-100 pt-4">
               <button
                 type="button"
-                disabled={pending !== "idle"}
-                onClick={() => submit("draft")}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={pending}
+                onClick={() => submit()}
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {pending === "draft" ? (
-                  <span className="loading loading-spinner loading-xs" />
-                ) : null}
-                Save Draft
-              </button>
-              <button
-                type="button"
-                disabled={pending !== "idle"}
-                onClick={() => submit("deploy")}
-                className="flex flex-[1.6] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {pending === "deploy" ? (
+                {pending ? (
                   <span className="loading loading-spinner loading-xs" />
                 ) : (
                   <Icon name="bolt" className="text-[18px]" />
                 )}
-                {pending === "deploy"
-                  ? "Saving challenge…"
-                  : "Save challenge draft"}
+                {pending ? "Preparing the stake invoice…" : "Create challenge and deposit"}
               </button>
             </div>
 
             <p className="mt-3 text-center text-[11px] font-medium text-slate-400">
-              This saves a custom draft. It does not move funds. Visibility,
-              charity, and forfeit choices are not stored yet.
+              KaleidoSwap opens a Chrome window named KaleidoSwap - Confirmation
+              after the stake invoice is ready. The challenge stays private until
+              that payment is confirmed.
             </p>
           </section>
         </div>

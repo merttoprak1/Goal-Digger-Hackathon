@@ -6,7 +6,9 @@
     "dev": "react-router dev",
     "build": "react-router build",
     "start": "vite preview --port 4173 --strictPort",
-    "typecheck": "react-router typegen && tsc"
+    "typecheck": "react-router typegen && tsc",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:payments": "node --experimental-strip-types --test tests/stake-wallet.test.ts tests/witness-payment.test.ts tests/kaleido-witness.test.ts tests/payment-confirmation.test.ts"
   },
   "dependencies": {
     "@react-router/node": "7.18.4",

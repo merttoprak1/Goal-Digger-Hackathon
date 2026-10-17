@@ -177,6 +177,14 @@ export function openSessions(databasePath: string, now: () => number = () => Dat
         .all(creatorId, limit, offset)
         .map((row) => JSON.parse(String(row.result)));
     },
+    listPublished(limit: number, offset: number) {
+      return db
+        .prepare(
+          "SELECT c.result FROM challenges c JOIN publications p ON p.challenge_id=c.id ORDER BY p.published_at DESC,c.id DESC LIMIT ? OFFSET ?",
+        )
+        .all(limit, offset)
+        .map((row) => JSON.parse(String(row.result)));
+    },
     revoke(token: string) {
       db.prepare("DELETE FROM sessions WHERE token_hash=?").run(hash(token));
     },

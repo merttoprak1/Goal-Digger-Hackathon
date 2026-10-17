@@ -16,6 +16,27 @@ const invoiceBody = z
 export function registerSettlementRoutes(router: Router, context: ChallengeContext): void {
   const { store } = context;
 
+  router.post("/:id/proof-note", (req, res) => {
+    const id = String(req.params.id);
+    const challenge = store.getChallenge(participantId(res), id);
+    if (!challenge) throw new ApiError(404, "Challenge not found.", "NOT_FOUND");
+    if (challenge.template !== "custom") {
+      throw new ApiError(409, "This challenge does not use a written proof.", "WRONG_PROOF_METHOD");
+    }
+    const parsed = z
+      .object({ statement: z.string().trim().min(3).max(1000) })
+      .strict()
+      .safeParse(req.body);
+    if (!parsed.success) {
+      throw new ApiError(400, "Send a proof statement of 3 to 1000 characters.", "INVALID_PROOF");
+    }
+    if (Date.now() >= Date.parse(challenge.proofDeadline)) {
+      throw new ApiError(409, "The proof deadline has passed.", "PROOF_WINDOW_CLOSED");
+    }
+    store.saveProofNote(id, parsed.data.statement);
+    res.json({ saved: true });
+  });
+
   router.post("/:id/finalize", (req, res) => {
     const id = String(req.params.id);
     requirePublished(store, id);

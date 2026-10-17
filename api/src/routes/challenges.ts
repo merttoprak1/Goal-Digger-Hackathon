@@ -5,6 +5,7 @@ import type { PayoutVault, SessionStore } from "./challenge/context.js";
 import { registerDraftRoutes } from "./challenge/drafts.js";
 import { registerFundingRoutes } from "./challenge/funding.js";
 import { registerProofRoutes } from "./challenge/proofs.js";
+import { registerPublicRoutes } from "./challenge/public.js";
 import { registerSettlementRoutes } from "./challenge/settlement.js";
 
 export function challengeRoutes(
@@ -15,6 +16,7 @@ export function challengeRoutes(
   const router = Router();
   const context = { store, stakes, payoutVault };
 
+  registerPublicRoutes(router, context);
   router.use((req, res, next) => {
     res.locals.participant = sessionIdentity(store, req.header("authorization")).participant;
     next();

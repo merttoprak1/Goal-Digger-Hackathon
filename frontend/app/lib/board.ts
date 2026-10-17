@@ -15,6 +15,9 @@ const recordSchema = z.object({
   startsAt: z.string(),
   bettingCutoff: z.string(),
   successRule: z.string(),
+  visibility: z.enum(["public", "solo"]).optional(),
+  forfeit: z.enum(["donate", "burn", "rollover"]).optional(),
+  charity: z.string().optional(),
   creatorStakeAtomic: amount,
   confirmedPoolAtomic: amount,
   eligiblePoolAtomic: amount,
@@ -38,6 +41,9 @@ export interface BoardChallenge {
   startsAt: string;
   bettingCutoff: string;
   successRule: string;
+  visibility: "public" | "solo" | null;
+  forfeit: "donate" | "burn" | "rollover" | null;
+  charity: string | null;
   note: string;
   badge: string;
   hover: string;
@@ -158,6 +164,9 @@ export function toBoardChallenge(record: LiveRecord): BoardChallenge {
     startsAt: record.startsAt,
     bettingCutoff: record.bettingCutoff,
     successRule: record.successRule,
+    visibility: record.visibility ?? null,
+    forfeit: record.forfeit ?? null,
+    charity: record.charity ?? null,
     note: view.note,
     badge: view.badge,
     hover: view.hover,
@@ -170,8 +179,11 @@ export function customDraft(input: {
   title: string;
   successRule: string;
   stake: string;
-  horizonDays: number;
+  proofDeadline: string;
   proofSource: string;
+  visibility: "public" | "solo";
+  forfeit: "donate" | "burn" | "rollover";
+  charity?: string;
   now?: number;
   timeZone?: string;
 }) {
@@ -196,16 +208,6 @@ export function customDraft(input: {
       "INVALID_CHALLENGE",
       "Enter a proof source with 3 to 500 characters.",
     );
-  if (
-    !Number.isInteger(input.horizonDays) ||
-    input.horizonDays < 1 ||
-    input.horizonDays > 365
-  )
-    throw new BoardError(
-      400,
-      "INVALID_CHALLENGE",
-      "Choose a deadline from 1 to 365 days ahead.",
-    );
   const stake = usdtToAtomic(input.stake);
   if (!stake)
     throw new BoardError(
@@ -214,7 +216,13 @@ export function customDraft(input: {
       "Enter a stake from 0.000001 to 100 test USDT, with at most 6 decimals.",
     );
   const now = input.now ?? Date.now();
-  const proofDeadline = now + input.horizonDays * 86_400_000;
+  const proofDeadline = Date.parse(input.proofDeadline);
+  if (!Number.isFinite(proofDeadline) || proofDeadline < now + 7_200_000)
+    throw new BoardError(
+      400,
+      "INVALID_CHALLENGE",
+      "Choose a proof deadline at least 2 hours ahead.",
+    );
   const startsAt = proofDeadline - 3_600_000;
   const bettingCutoff = startsAt - 60_000;
   let timeZone = input.timeZone ?? "UTC";
@@ -234,6 +242,11 @@ export function customDraft(input: {
     startsAt: new Date(startsAt).toISOString(),
     proofDeadline: new Date(proofDeadline).toISOString(),
     creatorStakeAtomic: stake,
+    visibility: input.visibility,
+    forfeit: input.forfeit,
+    ...(input.forfeit === "donate" && input.charity?.trim()
+      ? { charity: input.charity.trim() }
+      : {}),
   };
 }
 
@@ -255,6 +268,7 @@ export function createBoardClient({
     token: string | undefined,
     schema: z.ZodType<T>,
     body?: unknown,
+    timeoutMs = 30_000,
   ): Promise<T> {
     let response: Response;
     try {
@@ -266,7 +280,7 @@ export function createBoardClient({
           ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {
       throw new BoardError(
@@ -283,7 +297,7 @@ export function createBoardClient({
       throw new BoardError(
         response.status,
         parsed.success ? parsed.data.error.code : "REQUEST_FAILED",
-        parsed.success ? parsed.data.error.message : "The request failed. Try again.",
+        parsed.success ? parsed.data.error.message : `The challenge service returned HTTP ${response.status}. Check payment before retrying.`,
       );
     }
     const parsed = schema.safeParse(payload);
@@ -328,6 +342,18 @@ export function createBoardClient({
         token,
         z.object({ challenges: z.array(recordSchema) }),
       ).then((result) => result.challenges.map(toBoardChallenge)),
+    listPublic: () =>
+      call(
+        "/challenges?limit=100&offset=0",
+        undefined,
+        z.object({ challenges: z.array(recordSchema) }),
+      ).then((result) => result.challenges.map(toBoardChallenge)),
+    getPublic: (id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}`,
+        undefined,
+        z.object({ challenge: recordSchema }),
+      ).then((result) => toBoardChallenge(result.challenge)),
     get: (token: string, id: string) =>
       call(
         `/challenges/${encodeURIComponent(id)}`,
@@ -341,8 +367,97 @@ export function createBoardClient({
         z.object({ challenge: recordSchema }),
         customDraft(input),
       ).then((result) => toBoardChallenge(result.challenge)),
+    publish: (token: string, id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/publish`,
+        token,
+        z.object({ challenge: recordSchema }),
+        {},
+      ).then((result) => toBoardChallenge(result.challenge)),
+    createStakeInvoice: (token: string, id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/creator-deposit`,
+        token,
+        z.object({
+          invoice: z.string().min(1),
+          status: z.string(),
+          fresh: z.boolean().optional(),
+        }),
+        {},
+        70_000,
+      ),
+    checkStake: (token: string, id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/creator-deposit`,
+        token,
+        z.object({ status: z.string() }),
+        undefined,
+        70_000,
+      ),
+    placeBet: (token: string, id: string, stakeUsdt: string) => {
+      const amountAtomic = usdtToAtomic(stakeUsdt);
+      if (!amountAtomic) {
+        throw new BoardError(
+          400,
+          "INVALID_STAKE",
+          "Enter a stake from 0.000001 to 100 test USDT, with at most 6 decimals.",
+        );
+      }
+      return call(
+        `/challenges/${encodeURIComponent(id)}/opponent-deposit`,
+        token,
+        z.object({
+          invoice: z.string().min(1),
+          status: z.string(),
+          fresh: z.boolean().optional(),
+        }),
+        { amountAtomic },
+        70_000,
+      );
+    },
+    checkBet: (token: string, id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/opponent-deposit`,
+        token,
+        z.object({ status: z.string() }),
+        undefined,
+        70_000,
+      ),
+    prizeShares: (id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/prize-shares`,
+        undefined,
+        z.object({
+          poolAtomic: z.string(),
+          proofDeadline: z.string(),
+          rule: z.string(),
+          success: z.array(shareRow),
+          failure: z.array(shareRow),
+        }),
+      ),
+    saveProof: (token: string, id: string, statement: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/proof-note`,
+        token,
+        z.object({ saved: z.boolean() }),
+        { statement },
+      ),
+    finalize: (token: string, id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/finalize`,
+        token,
+        z.object({ outcome: z.object({ status: z.string() }) }),
+        {},
+      ),
   };
 }
+
+const shareRow = z.object({
+  participantId: z.string(),
+  displayName: z.string(),
+  amountAtomic: z.string(),
+  role: z.string(),
+});
 
 export function boardSession(
   storage: Pick<Storage, "getItem" | "setItem" | "removeItem">,

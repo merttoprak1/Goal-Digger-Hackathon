@@ -29,6 +29,9 @@ export const challengeDraftSchema = z
       .string()
       .regex(/^[1-9][0-9]{0,8}$/)
       .refine((value) => /^[1-9][0-9]{0,8}$/.test(value) && BigInt(value) <= 100000000n),
+    visibility: z.enum(["public", "solo"]).default("public"),
+    forfeit: z.enum(["donate", "burn", "rollover"]).default("donate"),
+    charity: z.string().trim().min(3).max(120).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {

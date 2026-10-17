@@ -67,11 +67,10 @@ export default function Challenges() {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
     let active = true;
     setBusy(true);
-    client
-      .list(token)
+    const request = token ? client.list(token) : client.listPublic();
+    request
       .then((result) => {
         if (active) {
           setChallenges(result);
@@ -130,12 +129,20 @@ export default function Challenges() {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-8 lg:px-8">
       <div className="flex flex-col items-center justify-center gap-2 border-b border-slate-200 pb-6 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-          Challenges
-        </h1>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+            Challenges
+          </h1>
+          <Link
+            to="/challenges/new"
+            className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700"
+          >
+            Create Challenge
+          </Link>
+        </div>
         <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-relaxed font-normal text-slate-500 sm:text-base">
-          Your drafts and every published challenge come from the live API.
-          Opening this page does not move funds.
+          Published challenges are visible here. Create a participant to make
+          one. Opening this page does not move funds.
         </p>
       </div>
 
@@ -226,7 +233,7 @@ export default function Challenges() {
         </section>
       ) : null}
 
-      {token ? (
+      {ready ? (
       <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
         <div className="flex flex-col gap-6 lg:col-span-7">
           <div className="flex items-center justify-between">
@@ -243,16 +250,23 @@ export default function Challenges() {
             </span>
           </div>
 
-          <p className="text-sm text-slate-600">
-            Signed in as <strong>{participant}</strong>.{" "}
-            <button
-              type="button"
-              className="font-semibold text-indigo-600"
-              onClick={disconnect}
-            >
-              Disconnect
-            </button>
-          </p>
+          {token ? (
+            <p className="text-sm text-slate-600">
+              Signed in as <strong>{participant}</strong>.{" "}
+              <button
+                type="button"
+                className="font-semibold text-indigo-600"
+                onClick={disconnect}
+              >
+                Disconnect
+              </button>
+            </p>
+          ) : (
+            <p className="text-sm text-slate-600">
+              These are the published challenges. Create a participant to add
+              one.
+            </p>
+          )}
           {busy ? (
             <p role="status" className="text-sm text-slate-500">
               Read challenges…
@@ -260,7 +274,7 @@ export default function Challenges() {
           ) : null}
           {!busy && challenges.length === 0 ? (
             <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
-              No drafts or published challenges yet.
+              No published challenges yet.
             </p>
           ) : null}
           {challenges.length === 100 ? (
@@ -282,10 +296,10 @@ export default function Challenges() {
               </div>
               <div>
                 <h4 className="text-sm font-bold text-white">
-                  Ready to save a draft?
+                  Ready to create a challenge?
                 </h4>
                 <p className="text-xs font-normal text-slate-300">
-                  A custom draft is saved for this participant. No funds move.
+                  It is sent to the server. No funds move.
                 </p>
               </div>
             </div>

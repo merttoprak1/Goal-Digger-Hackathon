@@ -49,6 +49,24 @@ test("lists challenges with the participant token and never sends a body", async
   );
 });
 
+test("publishes with an empty JSON body and the participant token", async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  const client = createBoardClient({
+    fetchService: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return Response.json({ challenge: live });
+    },
+  });
+  const card = await client.publish(token, live.id);
+  assert.equal(card.title, "Wake up");
+  assert.equal(calls[0].init?.method, "POST");
+  assert.equal(calls[0].init?.body, "{}");
+  assert.equal(
+    new Headers(calls[0].init?.headers).get("Authorization"),
+    `Bearer ${token}`,
+  );
+});
+
 test("rejects an invalid challenge record instead of showing a partial card", async () => {
   const client = createBoardClient({
     fetchService: async () =>
@@ -66,14 +84,20 @@ test("builds a custom draft with ordered future deadlines and an atomic stake", 
     title: "Read daily",
     successRule: "Read 30 minutes",
     stake: "5.5",
-    horizonDays: 3,
+    proofDeadline: "2026-10-20T12:00:00.000Z",
     proofSource: "A dated photo",
+    visibility: "solo",
+    forfeit: "donate",
+    charity: "Water.org",
     now,
     timeZone: "Europe/Rome",
   });
   assert.equal(draft.template, "custom");
+  assert.equal(draft.visibility, "solo");
+  assert.equal(draft.charity, "Water.org");
   assert.equal(draft.proofMethod, "custom");
   assert.equal(draft.creatorStakeAtomic, "5500000");
+  assert.equal(draft.proofDeadline, "2026-10-20T12:00:00.000Z");
   assert.equal(draft.timezone, "Europe/Rome");
   assert.ok(Date.parse(draft.bettingCutoff) < Date.parse(draft.startsAt));
   assert.ok(Date.parse(draft.startsAt) < Date.parse(draft.proofDeadline));
@@ -85,8 +109,10 @@ test("builds a custom draft with ordered future deadlines and an atomic stake", 
           title: "Read daily",
           successRule: "Read",
           stake: "101",
-          horizonDays: 3,
+          proofDeadline: "2026-10-20T12:00:00.000Z",
           proofSource: "A dated photo",
+          visibility: "public",
+          forfeit: "burn",
           now,
         },
       }),

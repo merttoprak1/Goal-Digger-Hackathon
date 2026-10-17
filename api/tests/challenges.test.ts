@@ -49,15 +49,52 @@ it("creates a draft owned by the session with exact saved proof terms and no fun
   });
   expect(result.body.challenge.id).toMatch(/^[a-f0-9-]{36}$/);
   expect(result.body.challenge.createdAt).toBeTruthy();
+  expect(result.body.challenge.visibility).toBe("public");
+  expect(result.body.challenge.forfeit).toBe("donate");
+  const chosen = await request(app)
+    .post("/api/challenges")
+    .set("Authorization", `Bearer ${a.token}`)
+    .send({
+      ...input,
+      template: "custom",
+      proofMethod: "custom",
+      title: "Read daily",
+      visibility: "solo",
+      forfeit: "donate",
+      charity: "Water.org",
+    });
+  expect(chosen.status).toBe(201);
+  expect(chosen.body.challenge).toMatchObject({
+    visibility: "solo",
+    forfeit: "donate",
+    charity: "Water.org",
+  });
   const read = await request(app)
     .get("/api/challenges/" + result.body.challenge.id)
     .set("Authorization", `Bearer ${a.token}`);
   expect(read.body).toEqual(result.body);
 });
+it("shows published challenges without a participant session", async () => {
+  const { app, a } = await setup();
+  const input = { ...draft(), template: "custom", proofMethod: "custom", title: "Visible goal" };
+  const saved = await request(app)
+    .post("/api/challenges")
+    .set("Authorization", `Bearer ${a.token}`)
+    .send(input);
+  const id = saved.body.challenge.id;
+  expect((await request(app).get("/api/challenges")).body.challenges).toEqual([]);
+  expect((await request(app).get("/api/challenges/" + id)).status).toBe(404);
+  const blocked = await request(app)
+    .post("/api/challenges/" + id + "/publish")
+    .set("Authorization", `Bearer ${a.token}`)
+    .send({});
+  expect(blocked.status).toBe(409);
+  expect((await request(app).get("/api/challenges")).body.challenges).toEqual([]);
+});
 it("requires sessions and prevents other participants from reading private drafts", async () => {
   const { app, a, b } = await setup();
   expect((await request(app).post("/api/challenges").send(draft())).status).toBe(401);
-  expect((await request(app).get("/api/challenges")).status).toBe(401);
+  expect((await request(app).get("/api/challenges")).body.challenges).toEqual([]);
   const saved = await request(app)
     .post("/api/challenges")
     .set("Authorization", `Bearer ${a.token}`)

@@ -44,7 +44,8 @@ test("a settled deposit credits one bound stake across concurrent retries and re
       fetchService: vault(),
     });
     try {
-      await store.bind(binding);
+      const created = await store.bind(binding);
+      assert.equal(created.fresh, pass === 0 ? true : undefined);
       const results = await Promise.all([
         store.confirm("stake-1"),
         store.confirm("stake-1"),

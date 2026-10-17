@@ -10,6 +10,8 @@
 
 QVAC and the RGB node run on Mert's laptop. The team integrates the frontend and backend there for the demo.
 
+The current handoff is in [docs/HANDOFF.md](docs/HANDOFF.md). It covers how to run the app and how to demo a challenge.
+
 ## Idea
 Set a challenge and stake USDT on completing it. Other participants can bet against you. All confirmed stakes form one pool.
 
@@ -53,7 +55,7 @@ For another model location, set `QVAC_MODEL_PATH` to the GGUF file before starti
 
 This is a text inference check. Image evidence, challenge verification, payments, and the integrated demo remain future steps.
 
-The earlier app skeleton was removed. There is no frontend or npm project on this branch yet.
+The app lives in `frontend/`, `api/`, `qvac/`, and `vault/`. Follow [docs/HANDOFF-RUN.md](docs/HANDOFF-RUN.md) to start it.
 
 Use a normal commit and push for each completed step. Do not stash, rebase, or force push. Merge divergent histories.
 

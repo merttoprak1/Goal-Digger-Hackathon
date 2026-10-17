@@ -108,7 +108,7 @@ export function openStakeDeposits({ databasePath, token, fetchService = fetch })
       db.prepare(
         "UPDATE stake_deposits SET invoice = COALESCE(invoice, ?) WHERE payment_id = ?",
       ).run(JSON.stringify(result), binding.paymentId);
-      return JSON.parse(read.get(binding.paymentId).invoice);
+      return { ...JSON.parse(read.get(binding.paymentId).invoice), fresh: true };
     },
     async confirm(paymentId) {
       if (!validId(paymentId)) throw new Error("Invalid payment ID.");

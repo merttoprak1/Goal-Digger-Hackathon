@@ -169,9 +169,11 @@ test("status requires authentication and wallet errors do not become lost deposi
   assert.equal(invoiceRetry.status, 200);
   assert.equal((await invoiceRetry.json()).status, "awaiting_payment");
   fail = true;
-  assert.equal((await status()).status, 503);
-  fail = false;
   assert.equal((await (await status()).json()).status, "settled");
+  assert.equal((await request({ ...input, paymentId: "stake-2" })).status, 201);
+  assert.equal((await status("stake-2")).status, 503);
+  fail = false;
+  assert.equal((await (await status("stake-2")).json()).status, "settled");
 });
 
 test("uncertain invoice creation stays unknown and never repeats the wallet call", async (t) => {
@@ -221,4 +223,48 @@ test("completed and uncertain records survive server restart", async (t) => {
     }
   }
   assert.equal(calls, 2);
+});
+
+test("concurrent unpaid checks share one scan and reuse its saved result", async (t) => {
+  let scans = 0;
+  const { request, status } = await fixture(t, async () => invoice, async () => {
+    scans += 1;
+    await new Promise(resolve => setTimeout(resolve, 30));
+    return { assetId: "rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0", transfers: [{ recipientId: invoice.recipientId, kind: "ReceiveWitness", status: "WaitingCounterparty", txid: null, assignments: [] }] };
+  });
+  await request(input);
+  const responses = await Promise.all([status(), status(), status()]);
+  for (const response of responses) {
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, "awaiting_payment");
+  }
+  assert.equal(scans, 1);
+  assert.equal((await (await status()).json()).status, "awaiting_payment");
+  assert.equal(scans, 1);
+});
+
+test("slow wallet history scans return the last known status while scanning continues", async (t) => {
+  let scans = 0;
+  const { request, status } = await fixture(t, async () => invoice, async (saved) => {
+    scans += 1;
+    await new Promise((resolve) => setTimeout(resolve, 1_400));
+    return {
+      assetId: saved.assetId,
+      transfers: [{ ...matching }],
+    };
+  });
+  await request(input);
+
+  const started = performance.now();
+  const first = await status();
+  const elapsed = performance.now() - started;
+  assert.equal(first.status, 200);
+  assert.ok(elapsed < 1_300, `status response took ${elapsed}ms`);
+  assert.equal((await first.json()).status, "awaiting_payment");
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  const completed = await status();
+  assert.equal(completed.status, 200);
+  assert.equal((await completed.json()).status, "settled");
+  assert.equal(scans, 1);
 });

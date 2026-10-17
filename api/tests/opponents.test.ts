@@ -104,6 +104,15 @@ it("only the funded creator can publish and published terms become readable to o
   const pub = await f.post("/publish", {});
   expect(pub.status).toBe(200);
   expect(pub.body.challenge.status).toBe("open");
+  expect(
+    (await request(f.app).get("/api/challenges")).body.challenges.map(
+      (challenge: { id: string }) => challenge.id,
+    ),
+  ).toContain(f.challenge.id);
+  const shares = await request(f.app).get(`/api/challenges/${f.challenge.id}/prize-shares`);
+  expect(shares.status).toBe(200);
+  expect(shares.body.success[0].role).toBe("creator");
+  expect(BigInt(shares.body.poolAtomic) > 0n).toBe(true);
   expect((await f.post("/publish", {})).body.challenge.publishedAt).toBe(
     pub.body.challenge.publishedAt,
   );
@@ -115,6 +124,47 @@ it("only the funded creator can publish and published terms become readable to o
   ).body.challenges;
   expect(listed).toHaveLength(1);
   expect(listed[0].creatorDisplayName).toBe("Mert");
+});
+it("refuses an opponent stake when the saved challenge is solo", async () => {
+  const f = await setup();
+  const start = Date.now() + 3600000;
+  const saved = await request(f.app)
+    .post("/api/challenges")
+    .set("Authorization", `Bearer ${f.a.token}`)
+    .send({
+      template: "custom",
+      title: "Private goal",
+      successRule: "Finish the declared task",
+      proofMethod: "custom",
+      proofSource: "A dated photo",
+      timezone: "Europe/Rome",
+      bettingCutoff: new Date(start - 60000).toISOString(),
+      startsAt: new Date(start).toISOString(),
+      proofDeadline: new Date(start + 60000).toISOString(),
+      creatorStakeAtomic: "1000000",
+      visibility: "solo",
+      forfeit: "rollover",
+    });
+  const id = saved.body.challenge.id;
+  await request(f.app)
+    .post(`/api/challenges/${id}/creator-deposit`)
+    .set("Authorization", `Bearer ${f.a.token}`)
+    .send({});
+  f.set(true);
+  await request(f.app)
+    .get(`/api/challenges/${id}/creator-deposit`)
+    .set("Authorization", `Bearer ${f.a.token}`);
+  const published = await request(f.app)
+    .post(`/api/challenges/${id}/publish`)
+    .set("Authorization", `Bearer ${f.a.token}`)
+    .send({});
+  expect(published.status).toBe(200);
+  const bet = await request(f.app)
+    .post(`/api/challenges/${id}/opponent-deposit`)
+    .set("Authorization", `Bearer ${f.b.token}`)
+    .send({ amountAtomic: "1000000" });
+  expect(bet.status).toBe(409);
+  expect(bet.body.error.code).toBe("SOLO_CHALLENGE");
 });
 it("opponent invoices require publication and reject self-bets, supporting bets, and changed amounts", async () => {
   const f = await setup();
@@ -138,10 +188,13 @@ it("opponent invoices require publication and reject self-bets, supporting bets,
   const first = await f.post("/opponent-deposit", { amountAtomic: "2000000" }, f.b.token);
   expect(first.status).toBe(200);
   expect(first.body.paymentId.length).toBeLessThanOrEqual(80);
+  expect(first.body.fresh).toBe(true);
   const calls = f.calls();
-  expect(
-    (await f.post("/opponent-deposit", { amountAtomic: "2000000" }, f.b.token)).body,
-  ).toEqual(first.body);
+  const retry = (
+    await f.post("/opponent-deposit", { amountAtomic: "2000000" }, f.b.token)
+  ).body;
+  expect(retry).toEqual(Object.fromEntries(Object.entries(first.body).filter(([key]) => key !== "fresh")));
+  expect(retry.fresh).toBeUndefined();
   expect(f.calls()).toBe(calls);
   expect(
     (await f.post("/opponent-deposit", { amountAtomic: "3000000" }, f.b.token)).status,
@@ -199,7 +252,7 @@ it("blocks a new opponent after cutoff and keeps saved invoice access for an exi
   ).toBe(409);
   expect(
     (await f.post("/opponent-deposit", { amountAtomic: "2000000" }, f.b.token)).body,
-  ).toEqual(invoice.body);
+  ).toEqual(Object.fromEntries(Object.entries(invoice.body).filter(([key]) => key !== "fresh")));
   expect((await f.get("")).body.challenge.status).toBe("betting_closed");
 });
 it("stake amount bindings persist after restart and proof terms cannot be changed", async () => {

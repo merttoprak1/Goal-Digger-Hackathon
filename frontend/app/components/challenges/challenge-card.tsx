@@ -1,6 +1,16 @@
 import { Link } from "react-router";
 import type { BoardChallenge } from "~/lib/board";
 
+function formatDeadline(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  });
+}
+
 export function ChallengeCard({ challenge }: { challenge: BoardChallenge }) {
   return (
     <article
@@ -25,11 +35,14 @@ export function ChallengeCard({ challenge }: { challenge: BoardChallenge }) {
             {challenge.title}
           </h3>
         </Link>
-        <p className="mt-1 mb-5 text-xs font-medium text-slate-400">
+        <p className="mt-1 text-xs font-medium text-slate-400">
           by{" "}
           <span className="font-semibold text-slate-700">
             {challenge.creator}
           </span>
+        </p>
+        <p className="mt-1 mb-5 text-xs font-semibold text-slate-600">
+          Deadline {formatDeadline(challenge.proofDeadline)}
         </p>
       </div>
 

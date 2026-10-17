@@ -8,6 +8,7 @@ import { timingSafeEqual } from "node:crypto";
 import { validatePayoutInvoice } from "./payout-invoice.mjs";
 
 const assetId = "rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0";
+const depositStatusResponseGraceMs = 1_000;
 const error = (status, message) => Object.assign(new Error(message), { status });
 function issueInvoice(amountAtomic) {
   const cwd = fileURLToPath(new URL("../wdk/", import.meta.url));
@@ -227,6 +228,7 @@ export function createVaultServer({
   const updateStatus = db.prepare(
     "INSERT INTO deposit_status (result, id) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET result = excluded.result",
   );
+  const readStatus = db.prepare("SELECT result FROM deposit_status WHERE id = ?");
   db.exec(
     "CREATE TABLE IF NOT EXISTS payouts (id TEXT PRIMARY KEY, asset_id TEXT NOT NULL, recipient_id TEXT NOT NULL, result TEXT NOT NULL, UNIQUE(asset_id, recipient_id))",
   );
@@ -254,6 +256,7 @@ export function createVaultServer({
     "INSERT INTO payout_status VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET result = excluded.result",
   );
   let queue = Promise.resolve();
+  const depositChecks = new Map();
   const server = createServer({ requestTimeout: 10_000 }, async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "no-store");
@@ -312,20 +315,70 @@ export function createVaultServer({
           res.setHeader("Allow", "GET");
           throw error(405, "Use GET for this endpoint.");
         }
-        const operation = queue.then(async () => {
-          const old = read.get(statusMatch[1]);
-          if (!old) throw error(404, "Payment ID not found.");
-          const saved = JSON.parse(old.result);
-          if (!saved.recipientId || !saved.invoice)
-            return { ...saved, status: "unknown", txid: null };
-          const checked = assessDeposit(saved, await inspect(saved));
-          // Keep invoice creation state separate so POST retries still return the original invoice.
-          const result = { ...saved, ...checked, checkedAt: new Date().toISOString() };
-          updateStatus.run(JSON.stringify(result), statusMatch[1]);
-          return result;
+        const paymentId = statusMatch[1];
+        const old = read.get(paymentId);
+        if (!old) throw error(404, "Payment ID not found.");
+        const saved = JSON.parse(old.result);
+        if (!saved.recipientId || !saved.invoice) {
+          reply(200, { ...saved, status: "unknown", txid: null });
+          return;
+        }
+
+        const cached = readStatus.get(paymentId);
+        const latest = cached ? JSON.parse(cached.result) : saved;
+        const checkedAt = Date.parse(latest.checkedAt || "");
+        const cacheIsFresh =
+          latest.status === "awaiting_payment" &&
+          Number.isFinite(checkedAt) &&
+          Date.now() - checkedAt < 15_000;
+        const statusIsFinal = ["settled", "failed"].includes(latest.status);
+        let operation = depositChecks.get(paymentId);
+        if (!operation && !cacheIsFresh && !statusIsFinal) {
+          operation = queue.then(async () => {
+            const checked = assessDeposit(saved, await inspect(saved));
+            // Keep invoice creation state separate so POST retries return the original invoice.
+            const result = { ...saved, ...checked, checkedAt: new Date().toISOString() };
+            updateStatus.run(JSON.stringify(result), paymentId);
+            return result;
+          });
+          queue = operation.catch(() => {});
+          depositChecks.set(paymentId, operation);
+          operation.then(
+            () => {
+              if (depositChecks.get(paymentId) === operation)
+                depositChecks.delete(paymentId);
+            },
+            () => {
+              if (depositChecks.get(paymentId) === operation)
+                depositChecks.delete(paymentId);
+            },
+          );
+        }
+
+        if (!operation || cacheIsFresh || statusIsFinal) {
+          reply(200, latest);
+          return;
+        }
+        let timer;
+        const timeout = new Promise((resolve) => {
+          timer = setTimeout(() => resolve({ timedOut: true }), depositStatusResponseGraceMs);
         });
-        queue = operation.catch(() => {});
-        reply(200, await operation);
+        const outcome = await Promise.race([
+          operation.then(
+            (result) => ({ result }),
+            (cause) => ({ cause }),
+          ),
+          timeout,
+        ]);
+        clearTimeout(timer);
+        if ("timedOut" in outcome) {
+          // The WDK scan continues in the background. Return the last known state so
+          // tunnel/client timeouts cannot be mistaken for a failed wallet payment.
+          reply(200, latest);
+          return;
+        }
+        if ("cause" in outcome) throw outcome.cause;
+        reply(200, outcome.result);
         return;
       }
       const payoutValidation = req.url === "/vault/payouts/validate";

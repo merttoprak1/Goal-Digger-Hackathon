@@ -204,7 +204,7 @@ export default function Profile() {
             <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
               You have no challenges yet.{" "}
               <Link to="/challenges/new" className="font-semibold text-indigo-600">
-                Create a draft
+                Create a challenge
               </Link>
               .
             </p>

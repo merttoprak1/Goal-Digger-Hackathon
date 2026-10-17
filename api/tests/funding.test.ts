@@ -108,7 +108,11 @@ it("funding uses only the owner and saved amount with one stable invoice on retr
     .post(f.path)
     .set("Authorization", `Bearer ${f.a.token}`)
     .send({});
-  expect(second.body).toEqual(first.body);
+  expect(first.body.fresh).toBe(true);
+  expect(second.body).toEqual(
+    Object.fromEntries(Object.entries(first.body).filter(([key]) => key !== "fresh")),
+  );
+  expect(second.body.fresh).toBeUndefined();
   expect(f.calls()).toBe(1);
 });
 it("pending deposits do not fund a challenge and settled deposits credit exactly once", async () => {
