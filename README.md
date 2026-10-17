@@ -59,5 +59,19 @@ Use a normal commit and push for each completed step. Do not stash, rebase, or f
 
 Reference: [QVAC HTTP server](https://docs.qvac.tether.io/cli/http-server/).
 
+## Local RGB: second integration step
+
+After the node is running and unlocked, run this read-only check:
+
+```bash
+node scripts/check-rgb.mjs
+```
+
+It reads node and network information from localhost port 3001. It displays the network, block height, channel count, and peer count.
+
+The check does not display wallet keys or move funds. A successful connection does not establish that a payment or asset transfer works.
+
+Reference: [RGB Lightning Node API](https://github.com/RGB-Tools/rgb-lightning-node#use).
+
 ## Prior work
 No application code yet. Only the environment setup above existed before the hackathon; all app code is written during the event in dated commits.
