@@ -34,14 +34,14 @@ export async function clientLoader() {
 const CARD_HOVER: Record<ChallengeStatus, string> = {
   active: "hover:border-indigo-400",
   draft: "hover:border-slate-300",
-  open: "hover:border-violet-300",
+  open: "hover:border-indigo-400",
   new: "hover:border-indigo-400",
 };
 
 const TITLE_HOVER: Record<ChallengeStatus, string> = {
   active: "group-hover:text-indigo-600",
   draft: "group-hover:text-indigo-600",
-  open: "group-hover:text-violet-600",
+  open: "group-hover:text-indigo-600",
   new: "group-hover:text-indigo-600",
 };
 
