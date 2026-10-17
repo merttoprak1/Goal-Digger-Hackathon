@@ -470,7 +470,7 @@ export default function ChallengeNew() {
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 lg:px-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-xs">
           <Link
             to="/challenges"
@@ -484,20 +484,9 @@ export default function ChallengeNew() {
             Custom DLC Contract Builder
           </span>
         </div>
-
-        <span className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-          ARBITER SYNCED: MUTINYNET BLOCK #849,203
-          <span className="text-emerald-300">•</span>
-          DLC v0.4 Active
-        </span>
       </div>
 
       <div className="flex flex-col items-center gap-2.5 border-b border-slate-200 pb-6 text-center">
-        <span className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-bold tracking-wide text-indigo-700 uppercase">
-          <Icon name="bolt" className="text-[14px]" />
-          Powered by Goaly Arbiter
-        </span>
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
           Create Custom Challenge
         </h1>
