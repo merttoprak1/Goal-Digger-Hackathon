@@ -1,6 +1,6 @@
 # Goal Digger hackathon plan
 
-Status: agreed product rules and proposed implementation steps. No application code exists at the starting commit `0d7882c`.
+Status: challenge drafts, SQLite storage, the React form, and a shared API contract are implemented. The starting commit was `0d7882c`.
 
 ## Product rules
 
@@ -125,4 +125,4 @@ The event PDFs and resource spreadsheet are in the parent workspace's HackathonO
 
 ## Next small step
 
-Define the shared API and resolve wallet custody, empty pools, and service failures before implementing payments.
+Read [the shared API contract](docs/API.md). Resolve wallet custody, empty pools, and service failures, then prove the QVAC and RGB integrations.
