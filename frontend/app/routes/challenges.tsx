@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 
 import type { Route } from "./+types/challenges";
 import { MessageIn, StatusLabel, TypingDots } from "~/components/chat";
+import { Icon } from "~/components/icon";
 import { fetchChallengesSnapshot } from "~/lib/api";
 import { EASE } from "~/lib/motion";
 import { POOL_TONE, proofHint, STATUS_BADGE } from "~/lib/challenge-view";
@@ -247,12 +248,16 @@ function TypingIndicator({
 /** A card button asked the arbiter form to pre-fill. `nonce` allows repeats. */
 type PrefillRequest = { challenge: Challenge; nonce: number };
 
-function ArbiterPanel({
+function GoalyChat({
   arbiter,
   prefill,
+  open,
+  onToggle,
 }: {
   arbiter: ArbiterProfile;
   prefill: PrefillRequest | null;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     arbiter.greeting.map((text, index) => ({
@@ -278,12 +283,33 @@ function ArbiterPanel({
     return () => pending.forEach((id) => window.clearTimeout(id));
   }, []);
 
+  // Escape closes the panel, the way a dialog should.
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onToggle();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onToggle]);
+
   // Follow the newest line only while the reader is already at the bottom, so
   // scrolling back up to re-read the contract is not interrupted.
   useEffect(() => {
     const feed = feedRef.current;
     if (feed && stickToBottom.current) feed.scrollTop = feed.scrollHeight;
   }, [messages]);
+
+  // The feed element is created fresh on every open, so land on the newest line
+  // and re-arm the follow — otherwise the reader opens onto the oldest greeting
+  // of a conversation that is already taller than the box.
+  useEffect(() => {
+    if (!open) return;
+    const feed = feedRef.current;
+    if (!feed) return;
+    stickToBottom.current = true;
+    feed.scrollTop = feed.scrollHeight;
+  }, [open]);
 
   function pinIfAtBottom() {
     const feed = feedRef.current;
@@ -359,192 +385,238 @@ function ArbiterPanel({
   }
 
   return (
-    <aside className="relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm lg:col-span-5">
-      <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-indigo-50/60 blur-3xl" />
-
-      {/* Ring that fades out where the card handed its values over. */}
-      {flash ? (
-        <motion.span
-          key={prefill?.nonce}
-          aria-hidden="true"
-          initial={{ opacity: 0.8 }}
-          animate={{ opacity: 0 }}
-          transition={{ duration: 1.1, ease: "easeOut" }}
-          className="pointer-events-none absolute inset-0 z-20 rounded-2xl ring-2 ring-indigo-500 ring-inset"
-        />
-      ) : null}
-
-      <div className="relative z-10 flex items-center border-b border-slate-100 pb-3.5">
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-2 text-sm font-bold tracking-tight text-slate-900">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            </span>
-            {arbiter.name} • {arbiter.role}
-          </span>
-          <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
-            {arbiter.agent}
-          </span>
-        </div>
-      </div>
-
-      <div className="relative z-10 my-4 flex flex-col gap-3">
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+    <>
+      {/* Launcher: the arbiter is a corner widget now, so the board keeps the
+          full width until someone actually asks it something. */}
+      <AnimatePresence>
+        {open ? null : (
           <motion.button
+            key="goaly-launcher"
             type="button"
-            whileTap={{ scale: 0.94, rotate: -1.5 }}
-            onClick={() => {
-              say("Hey! Stop poking the Arbiter and go finish your challenges!");
-              speak();
-            }}
-            title="Click to interact with Goaly!"
-            className="group flex shrink-0 cursor-pointer flex-col items-center"
+            onClick={onToggle}
+            aria-expanded={false}
+            aria-label={`Ask ${arbiter.name}, the AI arbiter`}
+            initial={{ opacity: 0, y: 12, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.9 }}
+            transition={{ duration: 0.22, ease: EASE }}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.96 }}
+            className="fixed right-4 bottom-4 z-40 flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white py-1.5 pr-4 pl-1.5 shadow-xl shadow-slate-900/10 transition-colors hover:border-indigo-300 sm:right-6 sm:bottom-6"
           >
-            <div className="mascot-alive relative flex h-48 w-36 items-end justify-center transition-transform duration-300 group-hover:scale-105 sm:h-52 sm:w-40">
+            <span className="relative flex h-11 w-11 shrink-0 items-end justify-center">
               <img
                 src="/goaly.png"
-                alt="Goaly, the Goal Digger panda arbiter"
-                className={`pointer-events-none h-full w-full object-contain select-none mix-blend-multiply ${
-                  speaking ? "mascot-talking" : ""
-                }`}
+                alt=""
+                className="mascot-alive pointer-events-none h-11 w-11 object-contain select-none mix-blend-multiply"
               />
-              <span
-                className="absolute right-1 bottom-6 z-30 h-4 w-4 rounded-full border-2 border-white bg-emerald-500 shadow-sm"
-                title="Active Arbiter Online"
-              />
-            </div>
-            <span className="-mt-2 flex items-center gap-1.5 text-xs font-extrabold text-slate-800">
-              Goaly
-              <span className="rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-indigo-600 uppercase">
-                Judge
+              <span className="absolute right-0 bottom-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
+            </span>
+            <span className="flex flex-col items-start leading-tight">
+              <span className="text-xs font-extrabold text-slate-900">
+                Ask {arbiter.name}
+              </span>
+              <span className="text-[10px] font-semibold text-slate-400">
+                {arbiter.agent} · online
               </span>
             </span>
           </motion.button>
+        )}
+      </AnimatePresence>
 
-          <div
-            ref={feedRef}
-            className="chat-feed flex max-h-72 w-full flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pt-2 pr-1"
+      <AnimatePresence>
+        {open ? (
+          <motion.aside
+            key="goaly-panel"
+            role="dialog"
+            aria-label={`${arbiter.name} arbiter chat`}
+            initial={{ opacity: 0, y: 28, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 28, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 420, damping: 34 }}
+            style={{ transformOrigin: "bottom right" }}
+            className="fixed inset-x-4 bottom-4 z-40 flex h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/25 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:h-[min(74vh,600px)] sm:w-[390px]"
           >
-            {messages.map((message) =>
-              message.from === "goaly" ? (
-                <GoalyBubble key={message.id} text={message.text} />
-              ) : (
-                <UserBubble key={message.id} text={message.text} />
-              ),
-            )}
-          </div>
-        </div>
+            <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-indigo-50/60 blur-3xl" />
 
-        <TypingIndicator working={working} idleText={arbiter.statusText} />
-
-        <div className="mt-1">
-          <span className="mb-2 block text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-            Preset Challenge Templates:
-          </span>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => applyPreset(preset)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-left font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="relative z-10 mt-auto flex flex-col gap-2.5 border-t border-slate-100 pt-3">
-        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-          <label htmlFor="goal-input" className="flex items-center gap-1.5">
-            <span>Propose Contract to Arbiter</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
-          </label>
-          {/* Keyed swap rather than AnimatePresence: a transient badge must not
-              wait for an exit animation before it can appear. */}
-          <motion.span
-            key={flash ? "prefilled" : "settlement"}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, ease: EASE }}
-            className={
-              flash
-                ? "rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-indigo-700 uppercase"
-                : "text-[11px] font-semibold text-indigo-600"
-            }
-          >
-            {flash ? "Prefilled from card" : "Arbiter settlement"}
-          </motion.span>
-        </div>
-
-        <div
-          className={[
-            "relative rounded-2xl border p-2.5 shadow-sm transition-colors duration-500 focus-within:border-indigo-500 focus-within:bg-white",
-            flash
-              ? "border-indigo-400 bg-indigo-50/60"
-              : "border-slate-200 bg-slate-50",
-          ].join(" ")}
-        >
-          <textarea
-            id="goal-input"
-            ref={inputRef}
-            rows={2}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                propose();
-              }
-            }}
-            placeholder="e.g., Code for 2 hours tonight, 20 USDT stake, verify with GitHub commit..."
-            className="w-full resize-none border-0 bg-transparent p-0 text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
-          />
-          <div className="mt-1 flex items-center justify-between border-t border-slate-200/60 pt-2">
-            <div
-              className={[
-                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 transition-colors duration-500",
-                flash
-                  ? "border-indigo-400 bg-indigo-50"
-                  : "border-slate-200/90 bg-white",
-              ].join(" ")}
-            >
-              <span className="text-[11px] font-medium text-slate-500">
-                Stake:
-              </span>
-              <input
-                type="number"
-                min={1}
-                value={stake}
-                onChange={(event) => setStake(event.target.value)}
-                className="w-12 border-0 bg-transparent p-0 text-right font-mono text-xs font-bold text-indigo-600 focus:outline-none"
+            {/* Ring that fades out where the card handed its values over. */}
+            {flash ? (
+              <motion.span
+                key={prefill?.nonce}
+                aria-hidden="true"
+                initial={{ opacity: 0.8 }}
+                animate={{ opacity: 0 }}
+                transition={{ duration: 1.1, ease: "easeOut" }}
+                className="pointer-events-none absolute inset-0 z-20 rounded-3xl ring-2 ring-indigo-500 ring-inset"
               />
-              <span className="font-mono text-[10px] font-bold text-slate-400">
-                USDT
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={propose}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
-            >
-              <span>Propose</span>
-              <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-              </svg>
-            </button>
-          </div>
-        </div>
+            ) : null}
 
-        <p className="mt-0.5 text-center text-[11px] font-medium text-slate-400">
-          Enforced cryptographically using discrete log contracts (DLCs) on
-          Bitcoin.
-        </p>
-      </div>
-    </aside>
+            <div className="relative z-10 flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.9, rotate: -3 }}
+                  onClick={() => {
+                    say(
+                      "Hey! Stop poking the Arbiter and go finish your challenges!",
+                    );
+                    speak();
+                  }}
+                  title="Click to interact with Goaly!"
+                  className="flex h-10 w-10 shrink-0 cursor-pointer items-end justify-center"
+                >
+                  <img
+                    src="/goaly.png"
+                    alt="Goaly, the Goal Digger panda arbiter"
+                    className={`pointer-events-none h-10 w-10 object-contain select-none mix-blend-multiply ${
+                      speaking ? "mascot-talking" : ""
+                    }`}
+                  />
+                </motion.button>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5 text-sm font-bold tracking-tight text-slate-900">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                    </span>
+                    {arbiter.name} • {arbiter.role}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[10px] font-semibold text-slate-400">
+                    {arbiter.agent}
+                  </span>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onToggle}
+                aria-label="Close the arbiter chat"
+                className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                <Icon name="close" className="text-[18px]" />
+              </button>
+            </div>
+
+            <div
+              ref={feedRef}
+              className="chat-feed relative z-10 flex flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 pt-3 pb-1"
+            >
+              {messages.map((message) =>
+                message.from === "goaly" ? (
+                  <GoalyBubble key={message.id} text={message.text} />
+                ) : (
+                  <UserBubble key={message.id} text={message.text} />
+                ),
+              )}
+            </div>
+
+            <div className="relative z-10 px-4 pb-1">
+              <TypingIndicator working={working} idleText={arbiter.statusText} />
+            </div>
+
+            <div className="relative z-10 flex gap-1.5 overflow-x-auto border-t border-slate-100 px-4 py-2.5">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className="shrink-0 cursor-pointer rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold whitespace-nowrap text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative z-10 border-t border-slate-100 px-4 pt-2.5 pb-3">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                <label htmlFor="goal-input" className="flex items-center gap-1.5">
+                  <span>Propose Contract</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
+                </label>
+                {/* Keyed swap rather than AnimatePresence: a transient badge
+                    must not wait for an exit animation before it can appear. */}
+                <motion.span
+                  key={flash ? "prefilled" : "settlement"}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, ease: EASE }}
+                  className={
+                    flash
+                      ? "rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-indigo-700 uppercase"
+                      : "text-[11px] font-semibold text-indigo-600"
+                  }
+                >
+                  {flash ? "Prefilled from card" : "Arbiter settlement"}
+                </motion.span>
+              </div>
+
+              <div
+                className={[
+                  "relative mt-2 rounded-2xl border p-2.5 shadow-sm transition-colors duration-500 focus-within:border-indigo-500 focus-within:bg-white",
+                  flash
+                    ? "border-indigo-400 bg-indigo-50/60"
+                    : "border-slate-200 bg-slate-50",
+                ].join(" ")}
+              >
+                <textarea
+                  id="goal-input"
+                  ref={inputRef}
+                  rows={2}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      propose();
+                    }
+                  }}
+                  placeholder="e.g., Code for 2 hours tonight, 20 USDT stake, verify with GitHub commit..."
+                  className="w-full resize-none border-0 bg-transparent p-0 text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
+                />
+                <div className="mt-1 flex items-center justify-between border-t border-slate-200/60 pt-2">
+                  <div
+                    className={[
+                      "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 transition-colors duration-500",
+                      flash
+                        ? "border-indigo-400 bg-indigo-50"
+                        : "border-slate-200/90 bg-white",
+                    ].join(" ")}
+                  >
+                    <span className="text-[11px] font-medium text-slate-500">
+                      Stake:
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={stake}
+                      onChange={(event) => setStake(event.target.value)}
+                      className="w-12 border-0 bg-transparent p-0 text-right font-mono text-xs font-bold text-indigo-600 focus:outline-none"
+                    />
+                    <span className="font-mono text-[10px] font-bold text-slate-400">
+                      USDT
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={propose}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+                  >
+                    <span>Propose</span>
+                    <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <p className="mt-2 text-center text-[10px] font-medium text-slate-400">
+                Enforced cryptographically using discrete log contracts (DLCs) on
+                Bitcoin.
+              </p>
+            </div>
+          </motion.aside>
+        ) : null}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -554,13 +626,18 @@ export default function Challenges({ loaderData }: Route.ComponentProps) {
   const { challenges, arbiter } = loaderData as ChallengesSnapshot;
   const [prefill, setPrefill] = useState<PrefillRequest | null>(null);
   const [board, setBoard] = useState<BoardFilter>("all");
+  const [chatOpen, setChatOpen] = useState(false);
   const nonce = useRef(0);
 
   const visible = challenges.filter((challenge) => inBoard(challenge, board));
+  const toggleChat = useCallback(() => setChatOpen((value) => !value), []);
 
   function handleAction(challenge: Challenge) {
     nonce.current += 1;
     setPrefill({ challenge, nonce: nonce.current });
+    // The prefill lands in the chat, so open it rather than whisper into a
+    // closed panel.
+    setChatOpen(true);
   }
 
   return (
@@ -580,107 +657,110 @@ export default function Challenges({ loaderData }: Route.ComponentProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
-        <div className="flex flex-col gap-6 lg:col-span-7">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {BOARD_FILTERS.map((item) => {
-                const isActive = board === item.id;
-                const count = challenges.filter((challenge) =>
-                  inBoard(challenge, item.id),
-                ).length;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setBoard(item.id)}
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {BOARD_FILTERS.map((item) => {
+              const isActive = board === item.id;
+              const count = challenges.filter((challenge) =>
+                inBoard(challenge, item.id),
+              ).length;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setBoard(item.id)}
+                  className={[
+                    "relative flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-colors",
+                    isActive
+                      ? "text-white"
+                      : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700",
+                  ].join(" ")}
+                >
+                  {isActive ? (
+                    <motion.span
+                      layoutId="board-filter"
+                      transition={{
+                        type: "spring",
+                        stiffness: 480,
+                        damping: 34,
+                      }}
+                      className="absolute inset-0 rounded-xl bg-indigo-600 shadow-sm"
+                    />
+                  ) : null}
+                  <span className="relative z-10">{item.label}</span>
+                  <span
                     className={[
-                      "relative flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-colors",
-                      isActive
-                        ? "text-white"
-                        : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700",
+                      "relative z-10 font-mono",
+                      isActive ? "text-indigo-100" : "text-slate-400",
                     ].join(" ")}
                   >
-                    {isActive ? (
-                      <motion.span
-                        layoutId="board-filter"
-                        transition={{
-                          type: "spring",
-                          stiffness: 480,
-                          damping: 34,
-                        }}
-                        className="absolute inset-0 rounded-xl bg-indigo-600 shadow-sm"
-                      />
-                    ) : null}
-                    <span className="relative z-10">{item.label}</span>
-                    <span
-                      className={[
-                        "relative z-10 font-mono",
-                        isActive ? "text-indigo-100" : "text-slate-400",
-                      ].join(" ")}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <span className="font-mono text-xs font-medium text-slate-400">
-              Sorted by: Deadline
-            </span>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-
-          {visible.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {visible.map((challenge, index) => (
-                <ChallengeCard
-                  key={challenge.id}
-                  challenge={challenge}
-                  index={index}
-                  onAction={handleAction}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-              <span className="material-symbols-outlined text-3xl text-slate-300">
-                filter_alt_off
-              </span>
-              <p className="text-sm font-bold text-slate-700">
-                Nothing in this view
-              </p>
-              <p className="max-w-xs text-xs text-slate-500">
-                Pools you stake, win, or create land here.
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 text-white shadow-sm">
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/30 bg-indigo-600/30 text-lg text-indigo-300">
-                ⚡
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-white">
-                  Ready to lock your streak?
-                </h4>
-                <p className="text-xs font-normal text-slate-300">
-                  Lock your stake on Bitcoin Lightning Mutinynet and claim
-                  verified rewards.
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/challenges/new"
-              className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-500"
-            >
-              + Custom Challenge
-            </Link>
-          </div>
+          <span className="font-mono text-xs font-medium text-slate-400">
+            Sorted by: Deadline
+          </span>
         </div>
 
-        <ArbiterPanel arbiter={arbiter} prefill={prefill} />
+        {visible.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {visible.map((challenge, index) => (
+              <ChallengeCard
+                key={challenge.id}
+                challenge={challenge}
+                index={index}
+                onAction={handleAction}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+            <span className="material-symbols-outlined text-3xl text-slate-300">
+              filter_alt_off
+            </span>
+            <p className="text-sm font-bold text-slate-700">
+              Nothing in this view
+            </p>
+            <p className="max-w-xs text-xs text-slate-500">
+              Pools you stake, win, or create land here.
+            </p>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 text-white shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/30 bg-indigo-600/30 text-lg text-indigo-300">
+              ⚡
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">
+                Ready to lock your streak?
+              </h4>
+              <p className="text-xs font-normal text-slate-300">
+                Lock your stake on Bitcoin Lightning Mutinynet and claim
+                verified rewards.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/challenges/new"
+            className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-500"
+          >
+            + Custom Challenge
+          </Link>
+        </div>
       </div>
+
+      <GoalyChat
+        arbiter={arbiter}
+        prefill={prefill}
+        open={chatOpen}
+        onToggle={toggleChat}
+      />
     </main>
   );
 }

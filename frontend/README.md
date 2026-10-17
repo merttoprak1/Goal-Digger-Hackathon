@@ -67,16 +67,15 @@ Shared visual language:
 - **Header:** one row — logo, centered nav pills (Challenges / Create Challenge /
   Wallet / Payouts / Profile), a Mutinynet status pill, and the placeholder
   profile avatar linking to `/profile`.
-- **Chats:** the two arbiter transcripts (the arena panel and the create builder)
-  are bounded, independently scrollable feeds (`.chat-feed`). They follow new
-  messages only while you are already at the bottom, so scrolling up to re-read
-  the earlier messages is never interrupted, and the page around them does not
-  grow as the conversation does.
+- **Chats:** the two arbiter transcripts (the arena’s corner chat and the create
+  builder) are bounded, independently scrollable feeds (`.chat-feed`). They open
+  at the newest line and follow new messages only while you are already at the
+  bottom, so scrolling up to re-read the earlier messages is never interrupted,
+  and the page around them does not grow as the conversation does.
 
 ### `/challenges` — the arena
 
-Centered hero, a filter row, a 12-column grid with the challenge cards on the
-left (`col-span-7`) and the Goaly arbiter panel on the right (`col-span-5`), then
+Centered hero, the filter row, the challenge cards across the full width, then
 the dark call-to-action strip.
 
 The filter row is **All Challenges / Active Stakes / Settled Won / Created
@@ -86,9 +85,13 @@ personal views read the `viewer` relation the API attaches to a pool
 appears under Settled Won. An empty view says so rather than rendering a blank
 grid.
 
-The arbiter panel is interactive: the mascot reacts when clicked, the preset
+Goaly sits in the bottom-right corner as a launcher, so the board keeps the full
+width until you open it. The chat then slides up from that corner as a dialog
+and floats over the board instead of taking a column; Escape or the close button
+dismisses it. It is interactive: the mascot reacts when clicked, the preset
 chips and the card action buttons pre-fill the proposal form, and proposing a
-contract appends your message and a simulated arbiter reply.
+contract appends your message and a simulated arbiter reply. A card action opens
+the chat itself, since that is where its pre-fill lands.
 
 ### `/challenges/new` — create custom challenge
 
@@ -175,7 +178,7 @@ app/
     tones.ts              Shared accent maps for tiles, badges, notes and actions
   routes/
     home.tsx              Redirects to /challenges (the design has no landing page)
-    challenges.tsx        The challenge board, its filters + Goaly arbiter panel
+    challenges.tsx        The challenge board, its filters + Goaly corner chat
     challenge.tsx         Challenge detail
     challenge-new.tsx     Create custom challenge (chat-driven builder)
     profile.tsx           User profile, arbiter and wallet balance
@@ -264,7 +267,8 @@ same, the deploy stage checklist that runs before the arena route changes, the
 counts in `components/count-up.tsx` (profile stats, wallet balance, payout
 totals, and the summary XP as the stake is edited), the arbiter panel flashing
 when a card prefills it, chat bubbles easing in, the “Goaly is typing” bubble,
-the arena card stagger with its hover lift, the payout tab cross-fade, the spring
+the arena card stagger with its hover lift, the Goaly launcher handing the corner
+over to the chat panel, the payout tab cross-fade, the spring
 check badge on the selected visibility card, the deposit / cashout drawer
 unfolding under the balance card, the tick swapping in on the copy controls, and
 the mascot squash on poke.
