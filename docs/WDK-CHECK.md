@@ -21,6 +21,7 @@ Use Node.js 24 or later for setup. The check itself runs in Bare, not Node.js.
 The native setup downloads only the Mac ARM addon and checks its SHA-256 hash against the tested binary.
 It also applies a checked, one-line change to the pinned WDK binding for explicit CustomSignet selection.
 The setup refuses to patch a binding that differs from the pinned source.
+It also checks the pinned RGB SDK's source hash before correcting Bare detection and dynamic crypto imports for its signer.
 
 ## Configuration
 
@@ -64,6 +65,7 @@ The key initialization workaround is separate from the CustomSignet adapter chan
 
 A successful connection does not prove RGB deposit, signing, transfer, or payout compatibility.
 See [the deposit record](WDK-DEPOSIT.md) for the separate RGB receipt test.
+See [the return record](WDK-RETURN.md) for the outgoing signing and transfer test.
 
 ## RGB receive check
 
@@ -78,6 +80,19 @@ The first invoice has no asset restriction because the fresh wallet does not kno
 The sender must select the exact test USDT asset ID. The wrapper's asset label alone does not constrain the invoice.
 The refresh command checks the imported asset's balance and transfers. It does not create another transfer.
 Neither command implements vault endpoints or authorizes a payout.
+
+## One-time return test
+
+The local `return-invoice.json` file holds the original node's invoice for exactly 1 test USDT.
+The `send-back` command sends only that fixed asset and amount. It checks the decoded invoice before signing.
+It returns an existing request record on repeated calls. It does not replace uncertain transfers automatically.
+
+The `prepare-slots` command creates two 1,000-sat allocation outputs in the WDK wallet when needed for this test.
+It saves its unsigned transaction and resumes that same transaction if signing fails before broadcast.
+It records the broadcast stage before submission. A saved, accepted preparation does not create more outputs on a later call.
+
+These commands move test funds. The recorded return test is complete after both wallets report settlement.
+Use `npm run refresh` to check it. Do not repeat payment setup or delete the local records.
 
 To check a connection failure:
 

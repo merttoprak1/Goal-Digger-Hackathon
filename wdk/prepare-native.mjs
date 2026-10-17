@@ -35,3 +35,16 @@ const unpatched = binding.replace(after, before)
 if (hash(unpatched) !== original) throw new Error('The WDK binding differs from the pinned source. Refusing to patch it.')
 await writeFile(bindingPath, unpatched.replace(before, after))
 console.log('The explicit CustomSignet adapter flag is ready.')
+
+const sdkPath = new URL('./node_modules/@utexo/rgb-sdk/dist/index.mjs', import.meta.url)
+const sdkChanges = [
+  ['return typeof process !== "undefined" && process.versions != null && process.versions.node != null;',
+    'return !isBare() && typeof process !== "undefined" && process.versions != null && process.versions.node != null;'],
+  ['const nodeCrypto2 = "node:crypto";', 'const nodeCrypto2 = isBare() ? "bare-crypto" : "node:crypto";'],
+  ['const nodeCryptoPath = "node:crypto";', 'const nodeCryptoPath = isBare() ? "bare-crypto" : "node:crypto";']
+]
+const sdk = await readFile(sdkPath, 'utf8')
+const sdkOriginal = sdkChanges.reduce((text, [before, after]) => text.replaceAll(after, before), sdk)
+if (hash(sdkOriginal) !== 'f6680d2bd8df0b2d0f2528539f58f26e85d2e2cbbb3956301ecf891bad3396b7') throw new Error('The RGB SDK differs from the pinned source. Refusing to patch it.')
+await writeFile(sdkPath, sdkChanges.reduce((text, [before, after]) => text.replaceAll(before, after), sdkOriginal))
+console.log('The Bare signer runtime check is ready.')

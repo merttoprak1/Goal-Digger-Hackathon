@@ -5,7 +5,9 @@
     "prepare-native": "node prepare-native.mjs",
     "check": "bare check.mjs",
     "receive": "bare check.mjs receive",
-    "refresh": "bare check.mjs refresh"
+    "refresh": "bare check.mjs refresh",
+    "send-back": "bare check.mjs send-back",
+    "prepare-slots": "bare check.mjs prepare-slots"
   },
   "type": "module",
   "dependencies": {
