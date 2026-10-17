@@ -113,7 +113,7 @@ function seed(): Challenge[] {
       stakeUsdt: "5",
       poolUsdt: "20",
       proofSource: "SleepCycle + Photo",
-      action: { kind: "button", label: "Join Pool", tone: "violet" },
+      action: { kind: "button", label: "Join Pool", tone: "indigo" },
       proofDeadline: "2026-10-26T06:30:00+00:00",
       createdAt: "2026-10-16T10:02:00.000Z",
     },
