@@ -70,6 +70,8 @@ Suggested commit: `Document verified RGB test transfer`.
 
 ## 5. Connect one complete demo
 
+Status: the initial [payment API contract](docs/PAYMENT-API.md) is recorded for Ege to connect later. Payment endpoints remain unimplemented.
+
 Estimate: 45–60 minutes after the required teammate endpoints are ready.
 
 Agree on endpoint names and response fields with Vesim and Ege. Connect their interface and challenge logic to Mert's local services.
@@ -94,4 +96,4 @@ Keep changes on the assigned branch. Merge shared changes normally. Never stash,
 
 ## Next action
 
-Start task 5 by agreeing on the payment endpoint and response fields with Ege. Keep the first integration change small.
+Add a read-only invoice validation endpoint using [the payment contract](docs/PAYMENT-API.md). Validate an invoice before implementing any send request.

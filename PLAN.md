@@ -125,4 +125,4 @@ The event PDFs and resource spreadsheet are in the parent workspace's HackathonO
 
 ## Next small step
 
-Follow [TASKS.md](TASKS.md), one task at a time. POST /qvac/ask is complete. The fixed math assessment is complete. GET /rgb/wallet is complete. The transfer of 1 test USDT to Ege is verified. The next step is agreeing on the payment integration with Ege. The earlier shared API contract was removed with the app skeleton.
+Follow [TASKS.md](TASKS.md), one task at a time. POST /qvac/ask is complete. The fixed math assessment is complete. GET /rgb/wallet is complete. The transfer of 1 test USDT to Ege is verified. The initial payment contract is recorded for Ege's later integration. The next small step is read-only invoice validation. The earlier shared API contract was removed with the app skeleton.

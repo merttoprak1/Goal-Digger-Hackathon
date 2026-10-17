@@ -212,6 +212,10 @@ node --test rgb-wallet.test.mjs
 
 Reference: [RGB Lightning Node API specification](https://github.com/RGB-Tools/rgb-lightning-node/blob/master/openapi.yaml).
 
+## Payment integration contract
+
+The [payment API contract](docs/PAYMENT-API.md) defines a transfer request and status lookup for Ege's future backend. These endpoints are not implemented yet.
+
 ## Test transfer status
 
 The transfer of 1 test USDT to Ege is verified. The sender has 99 test USDT spendable, and Ege reported 101 test USDT settled and spendable. See [the transfer record](docs/RGB-TRANSFER.md).
