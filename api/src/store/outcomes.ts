@@ -50,16 +50,97 @@ export function outcomes(db: DatabaseSync, now: () => number) {
       .get(id);
     return row ? JSON.parse(String(row.result)) : null;
   };
+  const getProofReview = (id: string) => {
+    const row = db
+      .prepare(
+        "SELECT statement,submitted_at,review_verdict,review_reason,reviewer FROM custom_proofs WHERE challenge_id=?",
+      )
+      .get(id);
+    return row
+      ? {
+          statement: String(row.statement),
+          submittedAt: String(row.submitted_at),
+          reviewVerdict: String(row.review_verdict),
+          reason: String(row.review_reason),
+          reviewer: String(row.reviewer),
+        }
+      : null;
+  };
   return {
     getOutcome,
+    getProofReview,
+    beginProofReview(id: string, statement: string) {
+      const previous = getProofReview(id);
+      if (previous?.reviewVerdict === "accepted") {
+        if (previous.statement !== statement) {
+          throw new ApiError(
+            409,
+            "An accepted proof is already saved for this challenge.",
+            "PROOF_ACCEPTED",
+          );
+        }
+        return {
+          status: "accepted" as const,
+          submittedAt: previous.submittedAt,
+          review: {
+            verdict: "accepted" as const,
+            reason: previous.reason,
+            reviewer: "local-qvac" as const,
+          },
+        };
+      }
+      if (previous?.reviewVerdict === "pending") {
+        if (previous.statement !== statement) {
+          throw new ApiError(
+            409,
+            "The previous proof is still awaiting Goaly review. Retry the same evidence first.",
+            "PROOF_REVIEW_PENDING",
+          );
+        }
+        return { status: "pending" as const, submittedAt: previous.submittedAt };
+      }
+
+      const submittedAt = new Date(now()).toISOString();
+      db.prepare(
+        "INSERT INTO custom_proofs(challenge_id,statement,submitted_at,review_verdict,review_reason,reviewer) VALUES(?,?,?,'pending','','') ON CONFLICT(challenge_id) DO UPDATE SET statement=excluded.statement,submitted_at=excluded.submitted_at,review_verdict='pending',review_reason='',reviewer=''",
+      ).run(id, statement, submittedAt);
+      return { status: "pending" as const, submittedAt };
+    },
     saveProofNote(
       id: string,
       statement: string,
+      submittedAt: string,
       review: { verdict: "accepted" | "rejected"; reason: string; reviewer: "local-qvac" },
     ) {
+      const result = db
+        .prepare(
+          "UPDATE custom_proofs SET review_verdict=?,review_reason=?,reviewer=? WHERE challenge_id=? AND statement=? AND submitted_at=? AND review_verdict='pending'",
+        )
+        .run(review.verdict, review.reason, review.reviewer, id, statement, submittedAt);
+      const current = getProofReview(id);
+      if (result.changes === 0) {
+        if (current?.reviewVerdict === "accepted" && current.statement === statement) {
+          return {
+            review: {
+              verdict: "accepted" as const,
+              reason: current.reason,
+              reviewer: "local-qvac" as const,
+            },
+            submittedAt: current.submittedAt,
+          };
+        }
+        throw new ApiError(
+          409,
+          "This proof review changed while Goaly was responding. Retry its saved evidence.",
+          "PROOF_REVIEW_PENDING",
+        );
+      }
+      return { review, submittedAt };
+    },
+    clearPendingProofReview(id: string, statement: string, submittedAt: string) {
       db.prepare(
-        "INSERT INTO custom_proofs(challenge_id,statement,submitted_at,review_verdict,review_reason,reviewer) VALUES(?,?,?,?,?,?) ON CONFLICT(challenge_id) DO UPDATE SET statement=excluded.statement, submitted_at=excluded.submitted_at, review_verdict=excluded.review_verdict, review_reason=excluded.review_reason, reviewer=excluded.reviewer",
-      ).run(id, statement, new Date(now()).toISOString(), review.verdict, review.reason, review.reviewer);
+        "DELETE FROM custom_proofs WHERE challenge_id=? AND statement=? AND submitted_at=? AND review_verdict='pending'",
+      ).run(id, statement, submittedAt);
     },
     getBettingSnapshot: book.getBettingSnapshot,
     closeBetting: book.closeBetting,
@@ -94,6 +175,20 @@ export function outcomes(db: DatabaseSync, now: () => number) {
             "The proof deadline has not passed.",
             "PROOF_WINDOW_OPEN",
           );
+        if (
+          custom &&
+          db
+            .prepare(
+              "SELECT 1 FROM custom_proofs WHERE challenge_id=? AND review_verdict='pending'",
+            )
+            .get(id)
+        ) {
+          throw new ApiError(
+            409,
+            "A timely proof is waiting for Goaly review. Restore Goaly and retry the same evidence before finalizing.",
+            "PROOF_REVIEW_PENDING",
+          );
+        }
         const snapshot = book.sealInsideTransaction(id);
         const stakes = snapshot.stakes;
         const proved = custom

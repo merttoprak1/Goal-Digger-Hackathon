@@ -18,6 +18,8 @@ async function setup(template = "wake_up") {
   const invoices = new Map<string, Record<string, unknown>>();
   let settled = true;
   let onCustomReview: (() => void) | null = null;
+  let customReviewWait: Promise<void> | null = null;
+  let customReviewCalls = 0;
   const stakes = openStakeDeposits({
     databasePath,
     token: "secret",
@@ -49,7 +51,11 @@ async function setup(template = "wake_up") {
     stakeDeposits: stakes,
     proofReviewer: async (input) => {
       if (reviewerError) throw reviewerError;
-      if ("proofMethod" in input) onCustomReview?.();
+      if ("proofMethod" in input) {
+        customReviewCalls++;
+        onCustomReview?.();
+        if (customReviewWait) await customReviewWait;
+      }
       return {
         verdict: "proofMethod" in input
           ? customVerdict
@@ -114,6 +120,7 @@ async function setup(template = "wake_up") {
   return {
     app,
     databasePath,
+    challengeId: challenge.id,
     a,
     b,
     base,
@@ -135,6 +142,10 @@ async function setup(template = "wake_up") {
     setOnCustomReview: (callback: (() => void) | null) => {
       onCustomReview = callback;
     },
+    setCustomReviewWait: (wait: Promise<void> | null) => {
+      customReviewWait = wait;
+    },
+    customReviewCalls: () => customReviewCalls,
   };
 }
 it("saves success after the deadline from an accepted proof, with an immutable exact pool snapshot", async () => {
@@ -276,15 +287,101 @@ it("does not persist unclear custom evidence and allows a clearer retry", async 
   expect(retry.body.review.verdict).toBe("accepted");
 });
 
-it("does not record custom evidence when Goaly is unavailable", async () => {
+it("retains a pending custom proof review when Goaly is unavailable", async () => {
   const f = await setup("custom");
   await f.opponent();
   f.setReviewerError(new ApiError(503, "QVAC is unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
   const failed = await f.post("/proof-note", { statement: "I completed the stated goal." });
   expect(failed.status).toBe(503);
   expect(failed.body.error.code).toBe("PROOF_REVIEW_UNAVAILABLE");
+  expect(f.app.locals.sessionStore.getProofReview(f.challengeId)).toMatchObject({
+    statement: "I completed the stated goal.",
+    reviewVerdict: "pending",
+  });
   f.setReviewerError(null);
   expect((await f.post("/proof-note", { statement: "I completed the stated goal." })).status).toBe(200);
+});
+
+it("blocks failure finalization while a timely proof review is unresolved", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  f.setReviewerError(new ApiError(503, "QVAC is unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
+  await f.post("/proof-note", { statement: "I completed the stated goal." });
+  f.time(f.deadline);
+  const result = await f.post("/finalize");
+  expect(result.status).toBe(409);
+  expect(result.body.error.code).toBe("PROOF_REVIEW_PENDING");
+  expect((await f.get("/outcome")).body.outcome).toBeNull();
+});
+
+it("retries the exact timely pending proof after restart and deadline", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  f.setReviewerError(new ApiError(503, "QVAC is unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
+  await f.post("/proof-note", { statement: "I completed the stated goal." });
+  f.time(f.deadline);
+  const second = createApp({
+    databasePath: f.databasePath,
+    proofReviewer: async () => ({
+      verdict: "accepted",
+      reason: "The evidence supports the stated goal.",
+      reviewer: "local-qvac",
+    }),
+  });
+  cleanup.push(() => second.locals.close());
+  const retry = await request(second)
+    .post(f.base + "/proof-note")
+    .set("Authorization", `Bearer ${f.a.token}`)
+    .send({ statement: "I completed the stated goal." });
+  expect(retry.status).toBe(200);
+  expect(retry.body.review.verdict).toBe("accepted");
+  expect((await request(second).post(f.base + "/finalize").set("Authorization", `Bearer ${f.a.token}`).send({})).body.outcome.status).toBe("success");
+});
+
+it("rejects changed evidence while a previous timely review is pending", async () => {
+  const f = await setup("custom");
+  f.setReviewerError(new ApiError(503, "QVAC is unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
+  await f.post("/proof-note", { statement: "I completed the stated goal." });
+  f.setReviewerError(null);
+  const changed = await f.post("/proof-note", { statement: "Different evidence." });
+  expect(changed.status).toBe(409);
+  expect(changed.body.error.code).toBe("PROOF_REVIEW_PENDING");
+});
+
+it("runs only one Goaly review at a time for a pending challenge proof", async () => {
+  const f = await setup("custom");
+  let release!: () => void;
+  let markStarted!: () => void;
+  const wait = new Promise<void>((resolve) => { release = resolve; });
+  const started = new Promise<void>((resolve) => { markStarted = resolve; });
+  f.setCustomReviewWait(wait);
+  f.setOnCustomReview(markStarted);
+  const first = f.post("/proof-note", { statement: "I completed the goal." }).then((result) => result);
+  await started;
+  let secondSettled = false;
+  const second = f.post("/proof-note", { statement: "I completed the goal." }).then((result) => {
+    secondSettled = true;
+    return result;
+  });
+  await new Promise<void>((resolve) => setTimeout(resolve, 25));
+  release();
+  const [firstResult, secondResult] = await Promise.all([first, second]);
+  expect(firstResult.status).toBe(200);
+  expect(secondSettled).toBe(true);
+  expect(secondResult.status).toBe(409);
+  expect(secondResult.body.error.code).toBe("PROOF_REVIEW_PENDING");
+  expect(f.customReviewCalls()).toBe(1);
+});
+
+it("does not overwrite an accepted proof with later evidence", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  expect((await f.post("/proof-note", { statement: "I completed the goal." })).status).toBe(200);
+  const replacement = await f.post("/proof-note", { statement: "A different statement." });
+  expect(replacement.status).toBe(409);
+  expect(replacement.body.error.code).toBe("PROOF_ACCEPTED");
+  f.time(f.deadline);
+  expect((await f.post("/finalize")).body.outcome.status).toBe("success");
 });
 
 it("does not let a slow retry overwrite accepted proof after the deadline", async () => {
@@ -295,8 +392,9 @@ it("does not let a slow retry overwrite accepted proof after the deadline", asyn
   f.setOnCustomReview(() => f.time(f.deadline));
   const lateReview = await f.post("/proof-note", { statement: "A later replacement statement." });
   expect(lateReview.status).toBe(409);
-  expect(lateReview.body.error.code).toBe("PROOF_WINDOW_CLOSED");
+  expect(lateReview.body.error.code).toBe("PROOF_ACCEPTED");
   f.setOnCustomReview(null);
+  f.time(f.deadline);
   const outcome = await f.post("/finalize");
   expect(outcome.body.outcome).toMatchObject({ status: "success", proofId: f.base.split("/").at(-1) });
 });

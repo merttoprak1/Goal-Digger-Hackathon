@@ -8,7 +8,7 @@ import morgan from "morgan";
 import { env } from "./config/env.js";
 import { ApiError, errorHandler } from "./middlewares/error-handler.js";
 import { requestId } from "./middlewares/request-id.js";
-import { routes } from "./routes/index.js";
+import { createRoutes } from "./routes/index.js";
 import { localProofReviewer } from "./services/local-proof-reviewer.js";
 
 export function createApp({
@@ -16,11 +16,13 @@ export function createApp({
   stakeDeposits,
   payoutVault,
   proofReviewer,
+  readinessFetch = fetch,
 }: {
   databasePath?: string;
   stakeDeposits?: StakeDeposits;
   payoutVault?: ReturnType<typeof vaultPayouts>;
   proofReviewer?: ReturnType<typeof localProofReviewer>;
+  readinessFetch?: typeof fetch;
 } = {}) {
   const app = express();
 
@@ -63,8 +65,30 @@ export function createApp({
         localProofReviewer({ url: env.QVAC_ASSESS_URL, reviewUrl: env.QVAC_REVIEW_URL }),
     ),
   );
-  app.use("/api", routes);
-  app.use(routes);
+  const healthRoutes = createRoutes({
+    database: () => sessionStore.checkReady(),
+    vault: () => stakes?.health() ?? false,
+    qvacRgb: async () => {
+      const url = new URL("/health", env.QVAC_REVIEW_URL);
+      const response = await readinessFetch(url, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!response.ok) return { qvac: false, rgb: false };
+      const body: unknown = await response.json().catch(() => null);
+      if (!body || typeof body !== "object") return { qvac: false, rgb: false };
+      const result = body as {
+        qvac?: { status?: unknown };
+        rgb?: { status?: unknown };
+      };
+      return {
+        qvac: result.qvac?.status === "ok",
+        rgb: result.rgb?.status === "ok",
+      };
+    },
+  });
+  app.use("/api", healthRoutes);
+  app.use(healthRoutes);
   app.use((_req, _res, next) =>
     next(new ApiError(404, "Endpoint not found.", "NOT_FOUND")),
   );

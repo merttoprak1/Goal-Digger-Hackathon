@@ -63,6 +63,20 @@ export function openStakeDeposits({ databasePath, token, fetchService = fetch })
     }
   }
   return {
+    async health() {
+      try {
+        const response = await fetchService("http://127.0.0.1:4001/health", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (!response.ok) return false;
+        const body = await response.json().catch(() => null);
+        return body?.status === "ok";
+      } catch {
+        return false;
+      }
+    },
     getInvoice(paymentId) {
       if (!validId(paymentId)) throw new Error("Invalid payment ID.");
       const row = read.get(paymentId);
