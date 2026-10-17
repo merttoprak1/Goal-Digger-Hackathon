@@ -11,6 +11,7 @@ Branch: `qvac-RGB`. Complete one task, check it, then commit and push before sta
 - [x] Add POST /qvac/assess for the fixed math demonstration.
 - [x] Add GET /rgb/wallet for cached balances and assets.
 - [x] Complete a real transfer of 1 test USDT to Ege.
+- [x] Connect and synchronize a separate WDK wallet on Mutinynet.
 
 ## 1. Add one QVAC request endpoint (complete)
 
@@ -86,7 +87,7 @@ Suggested commit: `Connect local QVAC and RGB demo`.
 
 Image evidence needs a separate capability check. The current [QVAC HTTP chat interface](https://docs.qvac.tether.io/cli/http-server/) is text-only, so it must not silently discard submitted images.
 
-Add transcript or run verification, custom challenges, WDK, speech, and charity after the first complete demo works.
+Add transcript or run verification, custom challenges, speech, and charity after the first complete demo works.
 
 ## Ownership
 
@@ -96,4 +97,5 @@ Keep changes on the assigned branch. Merge shared changes normally. Never stash,
 
 ## Next action
 
-Add a read-only invoice validation endpoint using [the payment contract](docs/PAYMENT-API.md). Validate an invoice before implementing any send request.
+The separate [WDK wallet](docs/WDK-CHECK.md) passed synchronization and service error checks on Mutinynet.
+Next, test one deposit and one RGB transfer with test funds before implementing vault payments.

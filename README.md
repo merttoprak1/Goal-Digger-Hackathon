@@ -28,7 +28,7 @@ See [TASKS.md](TASKS.md) for the next small integration steps. See [PLAN.md](PLA
 ## Stack
 - RGB Lightning Node + kaleido-cli
 - QVAC (Qwen3.5 2B, Supertonic TTS)
-- WDK (bonus)
+- WDK (separate Mutinynet connection check)
 - TypeScript, React + Vite, DaisyUI, Framer Motion, Express, SQLite
 
 ## Local QVAC: first integration step
@@ -58,6 +58,11 @@ The earlier app skeleton was removed. There is no frontend or npm project on thi
 Use a normal commit and push for each completed step. Do not stash, rebase, or force push. Merge divergent histories.
 
 Reference: [QVAC HTTP server](https://docs.qvac.tether.io/cli/http-server/).
+
+## WDK connection check
+
+The separate [WDK check](docs/WDK-CHECK.md) connects a fresh test wallet to Mutinynet through the Bare runtime.
+It uses the mentor's sandbox package version. It does not send funds or change the existing node.
 
 ## Local RGB: second integration step
 
