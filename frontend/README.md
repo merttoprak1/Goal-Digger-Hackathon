@@ -216,9 +216,9 @@ Animation is [Motion](https://motion.dev) — the package is published as `motio
 and React components come from `motion/react` — plus plain CSS for everything
 that does not need JavaScript.
 
-**Motion handles:** route transitions (`root.tsx`), chat bubbles easing in, the
-“Goaly is typing” bubble, the arena card stagger with its hover lift, and the
-profile tab cross-fade.
+**Motion handles:** route transitions (`root.tsx`), the header nav pill gliding
+between tabs, chat bubbles easing in, the “Goaly is typing” bubble, the arena
+card stagger with its hover lift, and the profile tab cross-fade.
 
 **CSS handles:** hover colours, the mascot float/bob, status pings, and the
 `.chat-feed` scrollbar.

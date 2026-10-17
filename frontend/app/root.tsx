@@ -99,13 +99,23 @@ function NavLinks({ orientation }: { orientation: "row" | "scroll" }) {
             to={item.to}
             aria-current={active ? "page" : undefined}
             className={[
-              "rounded-full px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap transition",
+              "relative rounded-full px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors",
               active
-                ? "bg-indigo-100/80 text-indigo-700"
+                ? "text-indigo-700"
                 : "text-slate-500 hover:bg-slate-100 hover:text-slate-900",
             ].join(" ")}
           >
-            {item.label}
+            {/* One pill per nav instance, handed off via `layoutId`, so the
+                highlight glides between tabs instead of cross-fading. */}
+            {active ? (
+              <motion.span
+                layoutId={`nav-pill-${orientation}`}
+                aria-hidden="true"
+                transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                className="absolute inset-0 rounded-full bg-indigo-100/80"
+              />
+            ) : null}
+            <span className="relative z-10">{item.label}</span>
           </Link>
         );
       })}
