@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createVaultServer } from './vault.mjs';
+import { createVaultServer, assessDeposit } from './vault.mjs';
 
-async function fixture(t, issueInvoice) {
+async function fixture(t, issueInvoice, readDeposit) {
   const dir = mkdtempSync(join(tmpdir(), 'vault-test-'));
-  const app = createVaultServer({ token: 'test-secret', databasePath: join(dir, 'vault.sqlite'), issueInvoice });
+  const app = createVaultServer({ token: 'test-secret', databasePath: join(dir, 'vault.sqlite'), issueInvoice, readDeposit });
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
   t.after(async () => { await new Promise(resolve => app.server.close(resolve)); app.close(); rmSync(dir, { recursive: true }); });
   const url = `http://127.0.0.1:${app.server.address().port}/vault/deposits`;
-  return { app, request: (body, token = 'test-secret') => fetch(url, {
+  return { app, status: (id = 'stake-1', token = 'test-secret') => fetch(`${url}/${id}`, { headers: { authorization: `Bearer ${token}` } }), request: (body, token = 'test-secret') => fetch(url, {
     method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body)
   }) };
 }
@@ -30,6 +30,46 @@ test('private deposits persist one invoice across concurrent retries and reject 
   assert.equal(calls, 1);
   assert.equal((await request({ ...input, amountAtomic: '2000000' })).status, 409);
   assert.equal((await request({ ...input, amountAtomic: 1000000 })).status, 400);
+});
+
+const deposit = { assetId: 'rgb:expected', recipientId: invoice.recipientId, amountAtomic: '1000000' };
+const matching = { recipientId: invoice.recipientId, kind: 'ReceiveWitness', status: 'Settled', txid: 'a'.repeat(64), assignments: [{ Fungible: 1000000 }] };
+const snapshot = transfers => ({ assetId: deposit.assetId, transfers });
+
+test('only an exact settled incoming transfer confirms a deposit', () => {
+  assert.equal(assessDeposit(deposit, snapshot([matching])).status, 'settled');
+  for (const changed of [{ kind: 'Send' }, { recipientId: 'other' }]) {
+    assert.equal(assessDeposit(deposit, snapshot([{ ...matching, ...changed }])).status, 'unknown');
+  }
+  for (const changed of [{ assignments: [{ Fungible: 999999 }] }, { assignments: [] }, { txid: null }]) {
+    assert.equal(assessDeposit(deposit, snapshot([{ ...matching, ...changed }])).status, 'review_required');
+  }
+  assert.equal(assessDeposit(deposit, snapshot([{ ...matching, status: 'WaitingConfirmations' }])).status, 'pending');
+  assert.equal(assessDeposit(deposit, snapshot([{ ...matching, status: 'WaitingCounterparty', txid: null, assignments: [] }])).status, 'awaiting_payment');
+  assert.equal(assessDeposit(deposit, snapshot([{ ...matching, status: 'Failed' }])).status, 'failed');
+  assert.equal(assessDeposit(deposit, { assetId: 'rgb:other', transfers: [matching] }).status, 'unknown');
+  assert.equal(assessDeposit(deposit, snapshot([matching, matching])).status, 'review_required');
+});
+
+test('status requires authentication and wallet errors do not become lost deposits', async t => {
+  let fail = false;
+  const { request, status } = await fixture(t, async () => invoice, async saved => {
+    if (fail) throw new Error('offline');
+    return { assetId: saved.assetId, transfers: [matching] };
+  });
+  assert.equal((await status('stake-1', 'wrong')).status, 401);
+  assert.equal((await status('missing')).status, 404);
+  await request(input);
+  const first = await status();
+  assert.equal(first.status, 200);
+  assert.equal((await first.json()).status, 'settled');
+  const invoiceRetry = await request(input);
+  assert.equal(invoiceRetry.status, 200);
+  assert.equal((await invoiceRetry.json()).status, 'awaiting_payment');
+  fail = true;
+  assert.equal((await status()).status, 503);
+  fail = false;
+  assert.equal((await (await status()).json()).status, 'settled');
 });
 
 test('uncertain invoice creation stays unknown and never repeats the wallet call', async t => {

@@ -16,6 +16,7 @@ Branch: `qvac-RGB`. Complete one task, check it, then commit and push before sta
 - [x] Receive 1 test USDT in WDK and confirm settlement on both wallets.
 - [x] Sign and send 1 test USDT back through WDK, with settlement on both wallets.
 - [x] Add a private WDK deposit invoice endpoint with durable payment records.
+- [x] Add authenticated deposit status checks against matching WDK incoming transfers.
 
 ## 1. Add one QVAC request endpoint (complete)
 
@@ -106,4 +107,5 @@ The [funding record](docs/WDK-FUNDING.md) confirms 50,000 test sats as settled a
 The [WDK deposit record](docs/WDK-DEPOSIT.md) confirms 1 test USDT settled and spendable in the CustomSignet wallet.
 The [return record](docs/WDK-RETURN.md) confirms local signing and the completed return transfer. The original node holds 99 test USDT again.
 The [private vault endpoint](docs/VAULT-API.md) creates and saves invoices. Repeated payment IDs return the same invoice.
-Next, add a deposit status endpoint that checks the actual received asset, amount, recipient, and confirmed transfer.
+The deposit status endpoint checks the actual received asset, amount, recipient, and confirmed transfer.
+Next, connect confirmed deposits to challenge stake records in Ege's backend, with at most one credit per payment ID.

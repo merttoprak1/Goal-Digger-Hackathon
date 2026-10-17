@@ -24,7 +24,40 @@ function issueInvoice(amountAtomic) {
     }));
 }
 
-export function createVaultServer({ token, databasePath, issueInvoice: issue = issueInvoice }) {
+function readDeposit(saved) {
+  const cwd = fileURLToPath(new URL('./wdk/', import.meta.url));
+  return new Promise((resolve, reject) => execFile(`${cwd}/node_modules/.bin/bare`, ['check.mjs', 'deposit-status', saved.recipientId],
+    { cwd, timeout: 60_000, maxBuffer: 65536 }, (err, stdout) => {
+      if (err) return reject(new Error('The WDK status request failed.'));
+      try {
+        const body = JSON.parse(stdout);
+        if (body.nativeNetwork !== 'SignetCustom' || !Array.isArray(body.rgb?.transfers)) throw new Error();
+        resolve(body.rgb);
+      } catch { reject(new Error('WDK returned invalid transfer data.')); }
+    }));
+}
+
+export function assessDeposit(saved, snapshot) {
+  if (snapshot?.assetId !== saved.assetId || !Array.isArray(snapshot.transfers)) return { status: 'unknown', txid: null };
+  const matches = snapshot.transfers.filter(t => t.recipientId === saved.recipientId && t.kind === 'ReceiveWitness');
+  if (!matches.length) return { status: 'unknown', txid: null };
+  if (matches.length !== 1) return { status: 'review_required', txid: null };
+  const transfer = matches[0];
+  const txid = typeof transfer.txid === 'string' && /^[a-f0-9]{64}$/.test(transfer.txid) ? transfer.txid : null;
+  if (transfer.status === 'Failed') return { status: 'failed', txid };
+  if (transfer.status === 'WaitingCounterparty' && !txid && !transfer.assignments?.length) return { status: 'awaiting_payment', txid: null };
+  const assignments = transfer.assignments;
+  if (!txid || !Array.isArray(assignments) || !assignments.length || assignments.some(a =>
+    !a || Object.keys(a).join(',') !== 'Fungible' || !Number.isSafeInteger(a.Fungible) || a.Fungible < 0) ||
+    assignments.reduce((sum, a) => sum + BigInt(a.Fungible), 0n) !== BigInt(saved.amountAtomic)) {
+    return { status: 'review_required', txid };
+  }
+  if (transfer.status === 'Settled') return { status: 'settled', txid };
+  if (['WaitingBroadcast', 'WaitingConfirmations'].includes(transfer.status)) return { status: 'pending', txid };
+  return { status: 'unknown', txid };
+}
+
+export function createVaultServer({ token, databasePath, issueInvoice: issue = issueInvoice, readDeposit: inspect = readDeposit }) {
   if (typeof token !== 'string' || !token) throw new Error('Set VAULT_API_TOKEN before starting the vault.');
   mkdirSync(dirname(databasePath), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(databasePath);
@@ -33,6 +66,8 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
   const read = db.prepare('SELECT amount, result FROM deposits WHERE id = ?');
   const insert = db.prepare('INSERT INTO deposits VALUES (?, ?, ?)');
   const update = db.prepare('UPDATE deposits SET result = ? WHERE id = ?');
+  db.exec('CREATE TABLE IF NOT EXISTS deposit_status (id TEXT PRIMARY KEY, result TEXT NOT NULL)');
+  const updateStatus = db.prepare('INSERT INTO deposit_status (result, id) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET result = excluded.result');
   let queue = Promise.resolve();
   const server = createServer({ requestTimeout: 10_000 }, async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
@@ -42,6 +77,24 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
       const supplied = Buffer.from(req.headers.authorization || '');
       const expected = Buffer.from(`Bearer ${token}`);
       if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw error(401, 'A valid vault token is required.');
+      const statusMatch = /^\/vault\/deposits\/([a-zA-Z0-9_-]{1,80})$/.exec(req.url || '');
+      if (statusMatch) {
+        if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); throw error(405, 'Use GET for this endpoint.'); }
+        const operation = queue.then(async () => {
+          const old = read.get(statusMatch[1]);
+          if (!old) throw error(404, 'Payment ID not found.');
+          const saved = JSON.parse(old.result);
+          if (!saved.recipientId || !saved.invoice) return { ...saved, status: 'unknown', txid: null };
+          const checked = assessDeposit(saved, await inspect(saved));
+          // Keep invoice creation state separate so POST retries still return the original invoice.
+          const result = { ...saved, ...checked, checkedAt: new Date().toISOString() };
+          updateStatus.run(JSON.stringify(result), statusMatch[1]);
+          return result;
+        });
+        queue = operation.catch(() => {});
+        reply(200, await operation);
+        return;
+      }
       if (req.url !== '/vault/deposits') throw error(404, 'Endpoint not found.');
       if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); throw error(405, 'Use POST for this endpoint.'); }
       if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw error(415, 'Send Content-Type: application/json.');
@@ -75,7 +128,7 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
       queue = operation.catch(() => {});
       const [status, result] = await operation;
       reply(status, result);
-    } catch (e) { reply(e.status || 503, { error: e.status ? e.message : 'The invoice request failed. Reconcile this payment ID before retrying.' }); }
+    } catch (e) { reply(e.status || 503, { error: e.status ? e.message : 'The vault request failed. Reconcile this payment ID before retrying.' }); }
   });
   return { server, close: () => db.close() };
 }

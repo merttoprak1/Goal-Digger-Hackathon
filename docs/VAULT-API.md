@@ -1,7 +1,7 @@
 # Private WDK deposit endpoint
 
 The endpoint creates an RGB invoice and saves it under a payment ID.
-It does not send funds, confirm a deposit, credit a stake, or pay a winner.
+The status endpoint checks incoming transfers. Neither endpoint sends funds, credits a stake, or pays a winner.
 
 ## Start
 
@@ -50,6 +50,38 @@ Invoices require one confirmation and expire after one hour.
 
 An expired invoice remains attached to its payment ID. A retry does not replace it automatically.
 
+## Check deposit status
+
+```bash
+curl http://127.0.0.1:4001/vault/deposits/challenge-1-creator \
+  -H "Authorization: Bearer $VAULT_API_TOKEN"
+```
+
+The authenticated GET request refreshes WDK and checks the saved recipient against incoming transfers for the expected asset.
+It requires an exact amount and a transaction ID before reporting a confirmed deposit.
+WDK must report `Settled`, which requires the invoice's one confirmation.
+The response adds `txid` and `checkedAt` to the saved invoice fields.
+
+| Status | Meaning |
+|---|---|
+| `awaiting_payment` | The receive record exists but has no incoming assignment or transaction yet |
+| `pending` | The exact incoming amount exists but the transfer awaits broadcast or confirmation |
+| `settled` | One matching incoming transfer has the exact amount and WDK reports settlement |
+| `failed` | WDK reports the incoming transfer as failed |
+| `review_required` | Multiple matches, an incorrect amount, or incomplete transaction data need review |
+| `unknown` | Invoice creation is uncertain or usable matching transfer information is missing |
+
+An unknown payment ID returns HTTP 404. Missing authentication returns HTTP 401.
+A wallet or storage error returns HTTP 503. It never turns a service failure into a lost deposit.
+Even after a previous settled result, each GET checks WDK again. A service error does not return an old result as current.
+The server stores the latest checked result separately from the original invoice response.
+POST retries still return the same invoice response. Use GET for payment status.
+
+The check uses the individual incoming transfer, not the total wallet balance or projected amounts.
+A later outgoing payment does not erase the historical deposit receipt.
+Ege's backend must credit each payment ID at most once and check the challenge's deposit deadline.
+An expired invoice alone does not prove failure. This endpoint follows WDK's actual transfer status.
+
 ## Records and failures
 
 SQLite stores records in the ignored `wdk/data/vault.sqlite` database.
@@ -61,7 +93,7 @@ Reconcile uncertain records with the WDK transfer history before changing them. 
 
 The server processes wallet calls one at a time. Authentication applies to every request.
 Ege must map each payment ID to a participant and challenge in his backend.
-The next step is a deposit status endpoint that checks the received asset, amount, recipient, and confirmed transfer before crediting a stake.
+The next step is to connect confirmed deposits to challenge stake records in Ege's backend.
 
 ## Checks
 
@@ -69,7 +101,10 @@ The next step is a deposit status endpoint that checks the received asset, amoun
 node --test vault.test.mjs assessment.test.mjs rgb-wallet.test.mjs
 ```
 
-On October 17, 2026, all 10 tests passed.
+On October 17, 2026, all 12 tests passed.
 The live check created a real WDK invoice for 1 test USDT and decoded it through the original RGB node.
 The decoded network was SignetCustom, with the exact expected asset and amount.
 A server restart returned the same saved invoice. The check sent no funds.
+The status check reported the real unpaid invoice as `awaiting_payment`.
+It also checked the historical settled deposit through a temporary payment mapping and returned its exact original transaction ID.
+The temporary mapping did not add that historical deposit to the live vault ledger. No additional funds moved.

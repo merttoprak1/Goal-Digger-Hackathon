@@ -69,7 +69,8 @@ It received [1 confirmed test USDT](docs/WDK-DEPOSIT.md) through an explicit Cus
 It then [signed and returned that token](docs/WDK-RETURN.md) to the original node. Both wallets confirmed settlement.
 
 The [private deposit endpoint](docs/VAULT-API.md) creates WDK invoices with saved payment IDs on localhost port 4001.
-It requires a backend token. Deposit confirmation and payout endpoints remain future steps.
+It requires a backend token. GET `/vault/deposits/:paymentId` checks the actual incoming transfer and reports its payment status.
+Challenge stake credit and payout endpoints remain future steps.
 
 ## Local RGB: second integration step
 

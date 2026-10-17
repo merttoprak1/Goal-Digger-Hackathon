@@ -9,7 +9,7 @@ const walletDataDir = `${dataDir}/custom-signet`
 const indexerUrl = process.env.WDK_INDEXER_URL || 'https://esplora.signet.kaleidoswap.com'
 const transportEndpoint = 'rpcs://proxy.iriswallet.com/0.2/json-rpc'
 const mode = process.argv[2] || 'check'
-if (!['check', 'receive', 'refresh', 'prepare-slots', 'send-back', 'deposit'].includes(mode)) throw new Error('Invalid WDK operation.')
+if (!['check', 'receive', 'refresh', 'prepare-slots', 'send-back', 'deposit', 'deposit-status'].includes(mode)) throw new Error('Invalid WDK operation.')
 const assetId = 'rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0'
 const amountAtomic = 1_000_000
 process.env.GOAL_DIGGER_CUSTOM_SIGNET = '1'
@@ -43,7 +43,20 @@ try {
   // Cache the key pair first so dispose can erase it and close the wallet.
   void account.keyPair
   await account.syncWallet()
-  if (mode === 'deposit') {
+  if (mode === 'deposit-status') {
+    const recipientId = process.argv[3]
+    if (!recipientId?.startsWith('sbc:wvout:') || recipientId.length > 200) throw new Error('Invalid deposit recipient.')
+    await account.refreshWallet()
+    const transfers = await account.listTransfers(assetId)
+    if (!Array.isArray(transfers)) throw new Error('WDK returned invalid transfer history.')
+    result = {
+      assetId,
+      transfers: transfers.filter(t => t.recipientId === recipientId).map(t => ({
+        recipientId: t.recipientId, kind: t.kind, status: t.status,
+        txid: t.txid, assignments: t.assignments
+      }))
+    }
+  } else if (mode === 'deposit') {
     const amount = process.argv[3]
     if (!/^[1-9][0-9]{0,8}$/.test(amount || '') || BigInt(amount) > 100_000_000n) throw new Error('Invalid deposit amount.')
     const receive = await account.receiveAsset({
