@@ -8,8 +8,11 @@ import {
   ScrollRestoration,
   useLocation,
 } from "react-router";
+import { useState } from "react";
 
 import type { Route } from "./+types/root";
+import { GoalyDock } from "./components/goaly-dock";
+import { EMPTY_GOALY_DRAFT, GoalyBuilderContext } from "./lib/goaly-builder-context";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -32,9 +35,9 @@ export const links: Route.LinksFunction = () => [
 const NAV = [
   { to: "/challenges", label: "Challenges" },
   { to: "/challenges/new", label: "Create Challenge" },
-  { to: "/profile", label: "Profile" },
   { to: "/wallet", label: "Wallet" },
   { to: "/payouts", label: "Payouts" },
+  { to: "/profile", label: "Profile" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -96,9 +99,9 @@ function NavLinks({ orientation }: { orientation: "row" | "scroll" }) {
             to={item.to}
             aria-current={active ? "page" : undefined}
             className={[
-              "rounded-full px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap transition",
+              "rounded-full px-3.5 py-2 text-sm font-semibold whitespace-nowrap transition",
               active
-                ? "bg-indigo-100/80 text-indigo-700"
+                ? "bg-indigo-100/80 text-indigo-700 shadow-sm"
                 : "text-slate-500 hover:bg-slate-100 hover:text-slate-900",
             ].join(" ")}
           >
@@ -131,7 +134,7 @@ function AppHeader() {
             </span>
           </Link>
 
-          <div className="hidden lg:block">
+          <div className="hidden md:block">
             <NavLinks orientation="row" />
           </div>
 
@@ -157,7 +160,7 @@ function AppHeader() {
           </div>
         </div>
 
-        <div className="lg:hidden">
+        <div className="md:hidden">
           <NavLinks orientation="scroll" />
         </div>
       </div>
@@ -184,10 +187,14 @@ function AppFooter() {
 }
 
 export default function App() {
+  const [goalyDraft, setGoalyDraft] = useState(EMPTY_GOALY_DRAFT);
   return (
     <>
       <AppHeader />
-      <Outlet />
+      <GoalyBuilderContext.Provider value={{ draft: goalyDraft, setDraft: setGoalyDraft }}>
+        <Outlet />
+        <GoalyDock />
+      </GoalyBuilderContext.Provider>
       <AppFooter />
     </>
   );

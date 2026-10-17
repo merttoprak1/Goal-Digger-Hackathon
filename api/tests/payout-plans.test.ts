@@ -43,7 +43,15 @@ async function setup(template = "wake_up") {
     },
   });
   cleanup.push(() => stakes.close());
-  const app = createApp({ databasePath, stakeDeposits: stakes });
+  const app = createApp({
+    databasePath,
+    stakeDeposits: stakes,
+    proofReviewer: async ({ evidence, expectedAnswer }) => ({
+      verdict: Number(evidence.match(/-?\d+/)?.[0]) === expectedAnswer ? "accepted" : "rejected",
+      reason: "Test reviewer assessment.",
+      reviewer: "local-qvac",
+    }),
+  });
   cleanup.push(() => app.locals.close());
   const a = (await request(app).post("/api/sessions").send({ displayName: "Mert" })).body;
   const b = (await request(app).post("/api/sessions").send({ displayName: "Ege" })).body;

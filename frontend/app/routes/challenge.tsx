@@ -126,17 +126,6 @@ export default function ChallengeDetail({ loaderData }: Route.ComponentProps) {
       label: "Visibility",
       value: challenge.visibility === "solo" ? "Solo" : "Public",
     },
-    {
-      label: "Forfeit",
-      value:
-        challenge.forfeit === "burn"
-          ? "Burn"
-          : challenge.forfeit === "rollover"
-            ? "Rollover"
-            : challenge.forfeit === "donate"
-              ? `Donate${challenge.charity ? ` to ${challenge.charity}` : ""}`
-              : "Not recorded",
-    },
     { label: "Betting cutoff", value: formatDeadline(challenge.bettingCutoff) },
     { label: "Starts", value: formatDeadline(challenge.startsAt) },
     { label: "Proof deadline", value: formatDeadline(challenge.proofDeadline) },
@@ -151,7 +140,10 @@ export default function ChallengeDetail({ loaderData }: Route.ComponentProps) {
         ← All challenges
       </Link>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <section className="relative overflow-hidden border-b border-indigo-100 bg-gradient-to-br from-white via-indigo-50/70 to-slate-50 px-6 py-7 sm:px-8 sm:py-9">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-20 h-64 w-64 rounded-full bg-indigo-200/30 blur-3xl" />
+          <div className="relative">
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase ${challenge.badge}`}
@@ -172,12 +164,14 @@ export default function ChallengeDetail({ loaderData }: Route.ComponentProps) {
             {challenge.creator}
           </span>
         </p>
+          </div>
+        </section>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 sm:p-8">
           {fields.map((field) => (
             <div
               key={field.label}
-              className="rounded-xl border border-slate-200/70 bg-slate-50 p-4"
+              className="rounded-2xl border border-slate-200/70 bg-slate-50/80 p-4"
             >
               <span className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                 {field.label}
@@ -189,7 +183,7 @@ export default function ChallengeDetail({ loaderData }: Route.ComponentProps) {
           ))}
         </div>
 
-        <p className="mt-6 text-sm text-slate-600">{challenge.note}</p>
+        <p className="mx-5 mb-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-600 sm:mx-8 sm:mb-8">{challenge.note}</p>
         <PrizeShares
           challengeId={challenge.id}
           creatorId={challenge.creatorId}

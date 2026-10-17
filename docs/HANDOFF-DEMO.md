@@ -51,4 +51,4 @@ Each winner pastes a WDK receive invoice and chooses Claim share with WDK. WDK p
 | Wallet | Reads the KaleidoSwap test USDT balance |
 | Proofs, Ledger | Placeholder screens |
 
-Goaly can help write the plan. The saved challenge uses the fields on the form. Goaly does not move funds.
+Goaly can fill a reviewable challenge draft from the conversation. The user must review the fields and start creation; Goaly does not create challenges or move funds.

@@ -1,6 +1,12 @@
 import { createServer } from "node:http";
 import { goalyMessages } from "./goaly.mjs";
 import {
+  goalyBuilderFormat,
+  goalyBuilderMessages,
+  parseGoalyBuilderAnswer,
+  validateGoalyBuilderDraft,
+} from "./goaly-builder.mjs";
+import {
   assessmentFormat,
   assessmentMessages,
   assessmentRule,
@@ -83,6 +89,63 @@ async function readText(request, field) {
     throw requestError(400, `Send only ${field} containing 1 to 500 characters.`);
   }
   return body[field].trim();
+}
+
+async function readGoalyHistory(request, { builder = false } = {}) {
+  if (
+    request.headers["content-type"]?.split(";")[0].trim().toLowerCase() !==
+    "application/json"
+  ) {
+    throw requestError(415, "Send Content-Type: application/json.");
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request.iterator({ destroyOnReturn: false })) {
+    size += chunk.length;
+    if (size > 4096) {
+      request.resume();
+      throw requestError(413, "The request body must not exceed 4 KB.");
+    }
+    chunks.push(chunk);
+  }
+  let body;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw requestError(400, "Send valid JSON.");
+  }
+  const messages = body?.messages;
+  if (
+    !body ||
+    Array.isArray(body) ||
+    typeof body !== "object" ||
+    Object.keys(body).sort().join(",") !== (builder ? "draft,messages" : "messages") ||
+    !Array.isArray(messages) ||
+    messages.length < 1 ||
+    messages.length > 12 ||
+    messages.some(
+      (message) =>
+        !message ||
+        Array.isArray(message) ||
+        typeof message !== "object" ||
+        Object.keys(message).sort().join(",") !== "content,role" ||
+        !["user", "assistant"].includes(message.role) ||
+        typeof message.content !== "string" ||
+        !message.content.trim() ||
+        message.content.length > 500,
+    ) ||
+    messages.at(-1)?.role !== "user"
+  ) {
+    throw requestError(400, "Send 1 to 12 valid chat messages ending with a user message.");
+  }
+  const history = messages.map(({ role, content }) => ({ role, content: content.trim() }));
+  if (!builder) return history;
+  try {
+    validateGoalyBuilderDraft(body.draft);
+  } catch (error) {
+    throw requestError(400, error.message);
+  }
+  return { history, draft: body.draft };
 }
 
 async function readAssessment(request) {
@@ -225,7 +288,7 @@ export const server = createServer(
       }
       return;
     }
-    if (path === "/qvac/ask" || path === "/qvac/assess" || path === "/qvac/review" || path === "/qvac/chat") {
+    if (path === "/qvac/ask" || path === "/qvac/assess" || path === "/qvac/review" || path === "/qvac/chat" || path === "/qvac/builder") {
       if (request.method !== "POST") {
         response.setHeader("Allow", "POST");
         response
@@ -261,12 +324,23 @@ export const server = createServer(
             throw requestError(502, "QVAC returned an invalid proof assessment.");
           }
         } else {
-          const prompt = await readText(request, "prompt");
-          result = await askQvac(
-            path === "/qvac/chat"
-              ? goalyMessages(prompt)
-              : [{ role: "user", content: prompt }],
-          );
+          if (path === "/qvac/chat") {
+            result = await askQvac(goalyMessages(await readGoalyHistory(request)));
+          } else if (path === "/qvac/builder") {
+            const { history, draft } = await readGoalyHistory(request, { builder: true });
+            const completion = await askQvac(
+              goalyBuilderMessages(history, draft),
+              goalyBuilderFormat,
+            );
+            try {
+              result = parseGoalyBuilderAnswer(completion.answer);
+            } catch {
+              throw requestError(502, "QVAC returned an invalid challenge draft.");
+            }
+          } else {
+            const prompt = await readText(request, "prompt");
+            result = await askQvac([{ role: "user", content: prompt }]);
+          }
         }
         response.writeHead(200).end(JSON.stringify(result));
       } catch (error) {

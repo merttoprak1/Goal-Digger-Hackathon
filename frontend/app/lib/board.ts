@@ -7,6 +7,7 @@ const recordSchema = z.object({
   id: z.string().min(1),
   title: z.string(),
   template: z.string(),
+  proofMethod: z.string().optional(),
   creatorId: z.string(),
   creatorDisplayName: z.string().min(1),
   status: z.string(),
@@ -16,8 +17,6 @@ const recordSchema = z.object({
   bettingCutoff: z.string(),
   successRule: z.string(),
   visibility: z.enum(["public", "solo"]).optional(),
-  forfeit: z.enum(["donate", "burn", "rollover"]).optional(),
-  charity: z.string().optional(),
   creatorStakeAtomic: amount,
   confirmedPoolAtomic: amount,
   eligiblePoolAtomic: amount,
@@ -33,6 +32,7 @@ export interface BoardChallenge {
   statusLabel: string;
   template: string;
   templateEmoji: string;
+  proofMethod: string | null;
   stakeUsdt: string;
   poolUsdt: string | null;
   confirmedPoolUsdt: string;
@@ -42,13 +42,34 @@ export interface BoardChallenge {
   bettingCutoff: string;
   successRule: string;
   visibility: "public" | "solo" | null;
-  forfeit: "donate" | "burn" | "rollover" | null;
-  charity: string | null;
   note: string;
   badge: string;
   hover: string;
   titleHover: string;
   poolTone: string;
+}
+
+export type BoardFilter = "all" | "active" | "settled" | "created";
+
+/** Filter the live board using only fields returned by the service. */
+export function filterBoardChallenges(
+  challenges: BoardChallenge[],
+  filter: BoardFilter,
+  participantId = "",
+): BoardChallenge[] {
+  return challenges.filter((challenge) => {
+    if (filter === "created") {
+      return Boolean(participantId) && challenge.creatorId === participantId;
+    }
+    const settled = challenge.status === "succeeded" || challenge.status === "failed";
+    if (filter === "settled") return settled;
+    if (filter === "active") {
+      return ["funded", "open", "betting_closed", "funding_review"].includes(
+        challenge.status,
+      );
+    }
+    return true;
+  });
 }
 
 const STATUS: Record<
@@ -156,6 +177,7 @@ export function toBoardChallenge(record: LiveRecord): BoardChallenge {
     statusLabel: view.label,
     template: record.template.replaceAll("_", " "),
     templateEmoji: EMOJI[record.template] ?? "•",
+    proofMethod: record.proofMethod ?? null,
     stakeUsdt: formatAtomic(record.creatorStakeAtomic, 6),
     poolUsdt: eligible === 0n ? null : formatAtomic(record.eligiblePoolAtomic, 6),
     confirmedPoolUsdt: formatAtomic(record.confirmedPoolAtomic, 6),
@@ -165,8 +187,6 @@ export function toBoardChallenge(record: LiveRecord): BoardChallenge {
     bettingCutoff: record.bettingCutoff,
     successRule: record.successRule,
     visibility: record.visibility ?? null,
-    forfeit: record.forfeit ?? null,
-    charity: record.charity ?? null,
     note: view.note,
     badge: view.badge,
     hover: view.hover,
@@ -182,8 +202,6 @@ export function customDraft(input: {
   proofDeadline: string;
   proofSource: string;
   visibility: "public" | "solo";
-  forfeit: "donate" | "burn" | "rollover";
-  charity?: string;
   now?: number;
   timeZone?: string;
 }) {
@@ -243,10 +261,6 @@ export function customDraft(input: {
     proofDeadline: new Date(proofDeadline).toISOString(),
     creatorStakeAtomic: stake,
     visibility: input.visibility,
-    forfeit: input.forfeit,
-    ...(input.forfeit === "donate" && input.charity?.trim()
-      ? { charity: input.charity.trim() }
-      : {}),
   };
 }
 
@@ -434,6 +448,86 @@ export function createBoardClient({
           success: z.array(shareRow),
           failure: z.array(shareRow),
         }),
+      ),
+    ledger: (token: string, id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/ledger`,
+        token,
+        z.object({
+          challengeId: z.string(),
+          confirmedPoolAtomic: amount,
+          eligiblePoolAtomic: amount,
+          entries: z.array(
+            z.object({
+              participantId: z.string(),
+              participant: z.string(),
+              role: z.enum(["creator", "opponent"]),
+              amountAtomic: amount,
+              assetId: z.string(),
+              txid: z.string().regex(/^[a-f0-9]{64}$/),
+              creditedAt: z.string(),
+              eligible: z.boolean(),
+            }),
+          ),
+        }),
+      ),
+    mathProofs: (token: string, id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/proofs`,
+        token,
+        z.object({
+          proofs: z.array(
+            z.object({
+              problemId: z.string(),
+              answer: z.string(),
+              status: z.enum(["accepted", "rejected"]),
+              submittedAt: z.string(),
+              reason: z.string(),
+              agentReview: z.object({
+                reviewer: z.literal("local-qvac"),
+                verdict: z.enum(["accepted", "rejected"]),
+                reason: z.string(),
+              }).optional(),
+            }),
+          ),
+          accepted: z.boolean(),
+        }),
+      ),
+    createMathProblem: (token: string, id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/math/problem`,
+        token,
+        z.object({
+          problem: z.object({
+            id: z.string(),
+            left: z.number().int(),
+            right: z.number().int(),
+            operator: z.literal("+"),
+            createdAt: z.string(),
+            expiresAt: z.string(),
+          }),
+        }),
+        {},
+      ),
+    submitMathAnswer: (token: string, id: string, input: { problemId: string; answer: string }) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/math/submit`,
+        token,
+        z.object({
+          proof: z.object({
+            problemId: z.string(),
+            answer: z.string(),
+            status: z.enum(["accepted", "rejected"]),
+            submittedAt: z.string(),
+            reason: z.string(),
+            agentReview: z.object({
+              reviewer: z.literal("local-qvac"),
+              verdict: z.enum(["accepted", "rejected"]),
+              reason: z.string(),
+            }).optional(),
+          }),
+        }),
+        input,
       ),
     saveProof: (token: string, id: string, statement: string) =>
       call(

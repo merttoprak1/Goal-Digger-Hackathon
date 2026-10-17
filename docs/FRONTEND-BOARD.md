@@ -23,7 +23,7 @@ A missing session asks you to sign in on the board.
 The request uses template `custom` and proof method `custom`.
 The stake is converted to atomic test USDT, with a limit of 100.
 The proof deadline is the selected horizon. The start is one hour earlier. Betting closes one minute before the start.
-Visibility, charity, and forfeit choices on that form are not stored.
+Visibility is stored with the draft. Failure forfeits are handled by the public challenge pool rules: opponents share an eligible pool in proportion to their stakes. Solo challenges do not accept opponent stakes.
 Saving a draft does not move funds.
 
 ## Checks

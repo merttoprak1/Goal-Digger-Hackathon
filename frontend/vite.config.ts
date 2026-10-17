@@ -12,7 +12,7 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: [".tunnl.gg"],
     proxy: {
-      "/qvac": { target: process.env.QVAC_API_TARGET ?? "http://127.0.0.1:4002", changeOrigin: true },
+      "/qvac": { target: process.env.QVAC_API_TARGET ?? "http://127.0.0.1:4000", changeOrigin: true },
       "/api": { target: API_TARGET, changeOrigin: true },
     },
   },

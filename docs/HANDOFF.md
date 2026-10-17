@@ -42,9 +42,9 @@ Solo challenges can be seen after publication. They refuse opponent stakes.
 
 The Proofs and Ledger screens are placeholders. Profile shows only the signed-in participant's own challenges.
 
-Goaly plans a challenge. Goaly does not judge proof and does not move funds.
+Goaly can help fill the challenge draft from chat. It does not judge proof, create the challenge, or move funds.
 
-Charity and forfeit choices are saved with the challenge. They do not send funds.
+When the creator loses a public challenge, the opponents share the eligible pool in proportion to their stakes. Solo challenges do not accept opponent stakes.
 
 A custom proof is a written statement. It is not a camera feed or a health record.
 

@@ -56,7 +56,7 @@ Shared visual language:
 
 - **Surfaces:** `slate-50` page on white cards, hairline `slate-200` borders,
   `rounded-2xl` corners, soft `shadow-sm`.
-- **Brand:** `indigo-600` primary, `violet-600` for arbiter and rollover states,
+- **Brand:** `indigo-600` primary, `violet-600` for arbiter states,
   `blue-700` for active, `emerald` for verified/synced states, `slate` for drafts.
 - **Type:** Plus Jakarta Sans throughout, `font-mono` for all stake and pool
   numbers.
@@ -83,8 +83,6 @@ the right (`lg:col-span-7`):
 
 - **Step 1 — visibility & ruleset:** Public Arena (peer-to-peer counter-bets) or
   Solo Discipline.
-- **Failure forfeit:** donate to a verified charity, burn the stake
-  (`OP_RETURN`), or roll over to the next weekly goal vault.
 - **Step 2 — stake vault & proof parameters:** stake amount with `1/5/10/25/MAX`
   shortcuts, the challenge horizon, and the proof oracle row.
 
@@ -161,10 +159,11 @@ npm run dev
 | ------------------- | ----------------------- | ------------------------------------------ |
 | `VITE_USE_MOCKS`    | `true`                  | `false` sends real HTTP requests           |
 | `VITE_API_BASE_URL` | `/api`                  | Base path for API requests                 |
-| `API_TARGET`        | `http://127.0.0.1:4000` | Dev proxy target for `/api` (used by Vite) |
+| `API_TARGET`        | `http://127.0.0.1:4002` | Dev proxy target for `/api` (used by Vite) |
+| `QVAC_API_TARGET`   | `http://127.0.0.1:4000` | Dev proxy target for local QVAC chat |
 
-The dev proxy expects the Express API on port 4000, leaving port 3001 for the
-RGB node.
+The dev proxy sends API requests to Express on port 4002 and QVAC requests to
+the local assistant service on port 4000.
 
 > `contracts.ts` mirrors the shape the backend team agreed on for the fields the
 > board renders (status, stake, pool, proof source, action). Server-owned extras

@@ -136,13 +136,16 @@ export function openSessions(databasePath: string, now: () => number = () => Dat
         return [];
       return db
         .prepare(
-          "SELECT d.payment_id,d.participant_id,d.amount,c.credited_at FROM stake_deposits d JOIN stake_credits c ON c.payment_id=d.payment_id WHERE d.challenge_id=?",
+          "SELECT d.payment_id,d.participant_id,d.amount,c.asset_id,c.txid,c.recipient_id,c.credited_at FROM stake_deposits d JOIN stake_credits c ON c.payment_id=d.payment_id WHERE d.challenge_id=? ORDER BY c.credited_at,d.payment_id",
         )
         .all(challengeId)
         .map((row) => ({
           paymentId: String(row.payment_id),
           participantId: String(row.participant_id),
           amountAtomic: String(row.amount),
+          assetId: String(row.asset_id),
+          txid: String(row.txid),
+          recipientId: String(row.recipient_id),
           creditedAt: String(row.credited_at),
         }));
     },

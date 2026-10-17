@@ -1,8 +1,10 @@
 # Local Goaly chat
 
-Both Goaly chat panels now request replies from the local Qwen 3.5 model through QVAC.
-The challenge board and creation form use the same endpoint.
-Challenge records still use mocks. The Goaly client does not use mock replies.
+Goaly uses the local Qwen 3.5 model through QVAC. On the creation page, it can
+fill the reviewable challenge draft from the conversation. The user must review
+the fields and select Create challenge and deposit; KaleidoSwap still requires
+explicit wallet approval. Goaly cannot create a challenge or pay the invoice on
+its own.
 
 ## Start
 
@@ -19,20 +21,20 @@ The frontend proxies `/qvac` to the local integration service on port 4000.
 Set `QVAC_API_TARGET` for the Vite server if that service uses another address.
 This target is separate from Ege's challenge API target.
 
-`POST /qvac/chat` accepts only `{ "prompt": "your challenge" }`.
-The prompt limit is 500 characters and the JSON body limit is 4 KB.
-The model request uses the existing `goal-digger` alias, 128 output tokens, and a 30-second timeout.
+`POST /qvac/chat` accepts a recent `{ "messages": [{"role":"user|assistant","content":"..."}] }` history.
+`POST /qvac/builder` accepts the same messages plus the current draft and returns a structured reply and proposed field values.
+Both endpoints limit the JSON body to 4 KB. The browser sends up to six recent messages.
+The model request uses the existing `goal-digger` alias, 256 output tokens, and a 30-second timeout.
 QVAC uses the local Qwen3.5-2B GGUF configured in `qvac/qvac.config.mjs`.
 The browser displays errors when QVAC is unavailable. It does not replace failures with a fabricated reply.
 
-Goaly suggests measurable goals, deadlines, timezones, and proof methods.
+Goaly helps make success rules measurable and names possible proof methods. On the builder route, it can suggest title, rule, proof source, stake, deadline, and visibility values based on the conversation. The user reviews and edits these values before continuing.
 It receives product rules in a system message, separate from the user's text.
 It has no wallet tools, vault token, payout authority, or ability to accept evidence.
 The backend must still enforce proof rules and payment authorization.
 Model instructions guide replies but do not establish facts or guarantee correct advice.
 
-This small step sends the latest user message only. Earlier messages remain visible in the page but are not sent as conversation history.
-There is no persistent chat history, streaming, or automatic challenge creation from model output.
+The chat has no persistent history or streaming. Model output only prepares a draft; it never creates a challenge or initiates payment.
 The earlier structured evidence assessment endpoint remains separate.
 
 ## Checks

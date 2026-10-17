@@ -4,6 +4,7 @@ import { sessionIdentity } from "./sessions.js";
 import type { PayoutVault, SessionStore } from "./challenge/context.js";
 import { registerDraftRoutes } from "./challenge/drafts.js";
 import { registerFundingRoutes } from "./challenge/funding.js";
+import { registerLedgerRoutes } from "./challenge/ledger.js";
 import type { ProofReviewer } from "./challenge/context.js";
 import { registerProofRoutes } from "./challenge/proofs.js";
 import { registerPublicRoutes } from "./challenge/public.js";
@@ -30,6 +31,7 @@ export function challengeRoutes(
     next();
   });
 
+  registerLedgerRoutes(router, context);
   registerFundingRoutes(router, context);
   registerProofRoutes(router, context);
   registerSettlementRoutes(router, context);

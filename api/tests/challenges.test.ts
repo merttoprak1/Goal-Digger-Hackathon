@@ -50,7 +50,8 @@ it("creates a draft owned by the session with exact saved proof terms and no fun
   expect(result.body.challenge.id).toMatch(/^[a-f0-9-]{36}$/);
   expect(result.body.challenge.createdAt).toBeTruthy();
   expect(result.body.challenge.visibility).toBe("public");
-  expect(result.body.challenge.forfeit).toBe("donate");
+  expect(result.body.challenge).not.toHaveProperty("forfeit");
+  expect(result.body.challenge).not.toHaveProperty("charity");
   const chosen = await request(app)
     .post("/api/challenges")
     .set("Authorization", `Bearer ${a.token}`)
@@ -60,14 +61,10 @@ it("creates a draft owned by the session with exact saved proof terms and no fun
       proofMethod: "custom",
       title: "Read daily",
       visibility: "solo",
-      forfeit: "donate",
-      charity: "Water.org",
     });
   expect(chosen.status).toBe(201);
   expect(chosen.body.challenge).toMatchObject({
     visibility: "solo",
-    forfeit: "donate",
-    charity: "Water.org",
   });
   const read = await request(app)
     .get("/api/challenges/" + result.body.challenge.id)
@@ -122,6 +119,8 @@ it("rejects invalid terms, amounts, timezones, dates, and supplied authority fie
     { creatorId: "other" },
     { status: "open" },
     { confirmedPoolAtomic: "1000000" },
+    { forfeit: "donate" },
+    { charity: "Water.org" },
     { title: "a" },
     { successRule: "" },
     { proofSource: "" },

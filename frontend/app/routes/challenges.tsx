@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/challenges";
@@ -6,15 +6,23 @@ import {
   BoardError,
   boardSession,
   createBoardClient,
+  filterBoardChallenges,
   type BoardChallenge,
+  type BoardFilter,
 } from "~/lib/board";
-import { ArbiterPanel } from "~/components/challenges/arbiter-panel";
 import { ChallengeCard } from "~/components/challenges/challenge-card";
 
 
 const client = createBoardClient({
   baseUrl: import.meta.env.VITE_API_BASE_URL ?? "/api",
 });
+
+const FILTERS: Array<{ id: BoardFilter; label: string }> = [
+  { id: "all", label: "All Challenges" },
+  { id: "active", label: "Active" },
+  { id: "settled", label: "Settled" },
+  { id: "created", label: "Created by me" },
+];
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -32,10 +40,12 @@ export default function Challenges() {
   const [name, setName] = useState("");
   const [key, setKey] = useState("");
   const [participant, setParticipant] = useState("");
+  const [participantId, setParticipantId] = useState("");
   const [challenges, setChallenges] = useState<BoardChallenge[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
+  const [filter, setFilter] = useState<BoardFilter>("all");
 
   useEffect(() => {
     let active = true;
@@ -50,6 +60,7 @@ export default function Challenges() {
         if (!active) return;
         setToken(saved);
         setParticipant(result.participant.displayName);
+        setParticipantId(result.participant.id);
       })
       .catch((cause) => {
         if (!active) return;
@@ -83,6 +94,7 @@ export default function Challenges() {
           boardSession(localStorage).clear();
           setToken(null);
           setParticipant("");
+          setParticipantId("");
         }
         setError(cause instanceof Error ? cause.message : "The request failed.");
       })
@@ -108,6 +120,7 @@ export default function Challenges() {
       }
       setToken(result.token);
       setParticipant(result.participant.displayName);
+      setParticipantId(result.participant.id);
       setKey("");
       setName("");
     } catch (cause) {
@@ -121,30 +134,45 @@ export default function Challenges() {
     boardSession(localStorage).clear();
     setToken(null);
     setParticipant("");
+    setParticipantId("");
     setChallenges([]);
     setError("");
     setNote("");
   }
 
+  const visibleChallenges = useMemo(() => {
+    return filterBoardChallenges(challenges, filter, token ? participantId : "");
+  }, [challenges, filter, token, participantId]);
+
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-8 lg:px-8">
-      <div className="flex flex-col items-center justify-center gap-2 border-b border-slate-200 pb-6 text-center">
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            Challenges
-          </h1>
+    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-7 px-4 py-8 lg:px-8">
+      <section className="relative overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-white via-indigo-50/70 to-slate-50 px-6 py-8 shadow-sm sm:px-9 sm:py-10">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-10 -top-24 h-64 w-64 rounded-full bg-indigo-200/30 blur-3xl"
+        />
+        <div className="relative flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1 text-[11px] font-bold tracking-wide text-indigo-700 uppercase">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Mutinynet challenge board
+            </span>
+            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+              Make a goal. Put a stake on it.
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+              Browse live challenges, review their proof rules, and join when
+              you are ready. Wallet payments require your approval.
+            </p>
+          </div>
           <Link
             to="/challenges/new"
-            className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
           >
-            Create Challenge
+            <span aria-hidden="true">＋</span> Create challenge
           </Link>
         </div>
-        <p className="mx-auto mt-2 max-w-2xl text-center text-sm leading-relaxed font-normal text-slate-500 sm:text-base">
-          Published challenges are visible here. Create a participant to make
-          one. Opening this page does not move funds.
-        </p>
-      </div>
+      </section>
 
       {error ? (
         <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-800">
@@ -234,19 +262,25 @@ export default function Challenges() {
       ) : null}
 
       {ready ? (
-      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
-        <div className="flex flex-col gap-6 lg:col-span-7">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold">
-              <button
-                type="button"
-                className="rounded-xl border border-indigo-600 bg-indigo-600 px-3.5 py-2 text-white shadow-sm transition hover:bg-indigo-700"
-              >
-                All Goals ({challenges.length})
-              </button>
+      <div className="grid grid-cols-1 items-start gap-8">
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1">
+              {FILTERS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={filter === item.id}
+                  onClick={() => setFilter(item.id)}
+                  className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition ${filter === item.id ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                >
+                  {item.label}
+                  {item.id === "all" ? ` (${challenges.length})` : ""}
+                </button>
+              ))}
             </div>
             <span className="font-mono text-xs font-medium text-slate-400">
-              Newest first
+              Live API · newest first
             </span>
           </div>
 
@@ -272,9 +306,13 @@ export default function Challenges() {
               Read challenges…
             </p>
           ) : null}
-          {!busy && challenges.length === 0 ? (
+          {!busy && visibleChallenges.length === 0 ? (
             <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
-              No published challenges yet.
+              {challenges.length === 0
+                ? "No published challenges yet."
+                : filter === "created"
+                  ? "You have not created any challenges yet."
+                  : "No challenges match this filter."}
             </p>
           ) : null}
           {challenges.length === 100 ? (
@@ -284,7 +322,7 @@ export default function Challenges() {
           ) : null}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {challenges.map((challenge) => (
+            {visibleChallenges.map((challenge) => (
               <ChallengeCard key={challenge.id} challenge={challenge} />
             ))}
           </div>
@@ -312,7 +350,6 @@ export default function Challenges() {
           </div>
         </div>
 
-        <ArbiterPanel />
       </div>
       ) : null}
     </main>

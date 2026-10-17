@@ -110,15 +110,15 @@ export default function Profile() {
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 lg:px-8">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-          Profile
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-500">
-          Your challenges come from the live API. This page does not show a
-          wallet balance and it does not move funds.
-        </p>
-      </div>
+      {!token ? (
+        <div className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-white via-indigo-50/60 to-slate-50 p-7 shadow-sm sm:p-9">
+          <span className="text-xs font-bold tracking-wide text-indigo-600 uppercase">Your Goal Digger account</span>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">Profile</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+            Restore your participant to view the challenges linked to your account. Your wallet stays separate from this profile.
+          </p>
+        </div>
+      ) : null}
 
       {error ? (
         <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-800">
@@ -192,9 +192,34 @@ export default function Profile() {
         </section>
       ) : (
         <section className="flex flex-col gap-4">
-          <p className="text-sm text-slate-600">
-            Signed in as <strong>{participant}</strong>.
-          </p>
+          <div className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-white via-indigo-50/60 to-slate-50 p-6 shadow-sm sm:p-8">
+            <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-indigo-600 text-2xl font-extrabold text-white shadow-sm">
+                  {participant.trim().slice(0, 1).toUpperCase() || "G"}
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold tracking-wide text-indigo-600 uppercase">Participant profile</span>
+                  <h1 className="mt-1 truncate text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{participant}</h1>
+                  <p className="mt-1 truncate font-mono text-xs text-slate-500">ID {participantId.slice(0, 8)}…{participantId.slice(-6)}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link to="/wallet" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700">Open wallet</Link>
+                <Link to="/challenges/new" className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700">Create challenge</Link>
+              </div>
+            </div>
+            <div className="mt-6 grid gap-3 border-t border-indigo-100 pt-5 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white bg-white/80 p-4">
+                <p className="text-xs font-bold tracking-wide text-slate-500 uppercase">Created challenges</p>
+                <p className="mt-1 text-2xl font-extrabold text-slate-900">{mine.length}</p>
+              </div>
+              <div className="rounded-2xl border border-white bg-white/80 p-4">
+                <p className="text-xs font-bold tracking-wide text-slate-500 uppercase">Account status</p>
+                <p className="mt-1 flex items-center gap-2 text-sm font-bold text-emerald-700"><span className="h-2 w-2 rounded-full bg-emerald-500" />Connected</p>
+              </div>
+            </div>
+          </div>
           {busy ? (
             <p role="status" className="text-sm text-slate-500">
               Read challenges…

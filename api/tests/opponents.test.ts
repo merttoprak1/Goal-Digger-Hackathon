@@ -125,6 +125,34 @@ it("only the funded creator can publish and published terms become readable to o
   expect(listed).toHaveLength(1);
   expect(listed[0].creatorDisplayName).toBe("Mert");
 });
+it("returns only real confirmed credit receipts in the authenticated pool ledger", async () => {
+  const f = await setup();
+  const unauthenticated = await request(f.app).get(`/api/challenges/${f.challenge.id}/ledger`);
+  expect(unauthenticated.status).toBe(401);
+
+  await f.fund();
+  await f.post("/publish", {});
+  const response = await f.get("/ledger", f.b.token);
+  expect(response.status).toBe(200);
+  expect(response.body).toMatchObject({
+    challengeId: f.challenge.id,
+    confirmedPoolAtomic: "1000000",
+    eligiblePoolAtomic: "1000000",
+  });
+  expect(response.body.entries).toEqual([
+    expect.objectContaining({
+      participantId: f.a.participant.id,
+      participant: "Mert",
+      role: "creator",
+      amountAtomic: "1000000",
+      assetId: "rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0",
+      txid: "a".repeat(64),
+      eligible: true,
+    }),
+  ]);
+  expect(response.body.entries[0]).not.toHaveProperty("paymentId");
+  expect(response.body.entries[0]).not.toHaveProperty("recipientId");
+});
 it("refuses an opponent stake when the saved challenge is solo", async () => {
   const f = await setup();
   const start = Date.now() + 3600000;
@@ -143,7 +171,6 @@ it("refuses an opponent stake when the saved challenge is solo", async () => {
       proofDeadline: new Date(start + 60000).toISOString(),
       creatorStakeAtomic: "1000000",
       visibility: "solo",
-      forfeit: "rollover",
     });
   const id = saved.body.challenge.id;
   await request(f.app)
