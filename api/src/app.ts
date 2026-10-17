@@ -1,5 +1,6 @@
 import express from "express";
 import {openSessions} from './store/sessions.js';
+import {challengeRoutes} from './routes/challenges.js';
 import {sessionRoutes} from './routes/sessions.js';
 import morgan from "morgan";
 import { env } from "./config/env.js";
@@ -21,6 +22,7 @@ export function createApp({databasePath=env.DATABASE_PATH}:{databasePath?:string
   }
 
   app.use('/api',sessionRoutes(sessionStore));
+  app.use('/api/challenges',challengeRoutes(sessionStore));
   app.use('/api',routes);
   app.use(routes);
   app.use((_req,_res,next)=>next(new ApiError(404,'Endpoint not found.','NOT_FOUND')));

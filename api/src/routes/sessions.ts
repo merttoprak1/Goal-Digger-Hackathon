@@ -10,13 +10,14 @@ export function sessionRoutes(store:ReturnType<typeof openSessions>){
   if(!parsed.success)throw new ApiError(400,'Send only a displayName with 1 to 60 characters.','INVALID_PARTICIPANT');
   res.status(201).json(store.create(parsed.data.displayName));
  });
- function identity(header:string|undefined){
+ router.get('/me',(req,res)=>{res.json({participant:sessionIdentity(store,req.header('authorization')).participant});});
+ router.delete('/sessions/current',(req,res)=>{store.revoke(sessionIdentity(store,req.header('authorization')).token);res.status(204).end();});
+ return router;
+}
+
+export function sessionIdentity(store:ReturnType<typeof openSessions>,header:string|undefined){
   const token=/^Bearer ([a-f0-9]{64})$/.exec(header??'')?.[1];
   const participant=token?store.find(token):null;
   if(!token||!participant)throw new ApiError(401,'A valid participant session is required.','UNAUTHORIZED');
   return {token,participant};
  }
- router.get('/me',(req,res)=>{res.json({participant:identity(req.header('authorization')).participant});});
- router.delete('/sessions/current',(req,res)=>{store.revoke(identity(req.header('authorization')).token);res.status(204).end();});
- return router;
-}
