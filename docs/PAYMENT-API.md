@@ -1,6 +1,7 @@
 # Payment API contract
 
-Status: initial contract for later backend integration. These endpoints are not implemented.
+Status: initial contract for later backend integration. The transfer endpoints below are not implemented.
+The private WDK vault runs on port 4001. Its [payout invoice validator](PAYOUT-VALIDATION.md) is implemented without a send operation.
 
 Ege's backend calls Mert's local integration server at `http://127.0.0.1:4000`. Vesim's interface displays the result through Ege's backend.
 
@@ -80,6 +81,6 @@ Before adding the send endpoint, configure a private bearer token for calls from
 
 ## Next small implementation
 
-Add a read-only invoice validation endpoint first. Check a valid invoice, an expired invoice, an incorrect asset, and an incorrect amount.
+The read-only invoice validator is complete. It checks the invoice network, asset, amount, recipient type, expiry, and proxy.
 
 Then add the durable payment record before implementing the send request.

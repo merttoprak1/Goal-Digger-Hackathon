@@ -5,18 +5,39 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createVaultServer, assessDeposit } from './vault.mjs';
 
-async function fixture(t, issueInvoice, readDeposit) {
+async function fixture(t, issueInvoice, readDeposit, decodeInvoice) {
   const dir = mkdtempSync(join(tmpdir(), 'vault-test-'));
-  const app = createVaultServer({ token: 'test-secret', databasePath: join(dir, 'vault.sqlite'), issueInvoice, readDeposit });
+  const app = createVaultServer({ token: 'test-secret', databasePath: join(dir, 'vault.sqlite'), issueInvoice, readDeposit, decodeInvoice });
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
   t.after(async () => { await new Promise(resolve => app.server.close(resolve)); app.close(); rmSync(dir, { recursive: true }); });
   const url = `http://127.0.0.1:${app.server.address().port}/vault/deposits`;
-  return { app, status: (id = 'stake-1', token = 'test-secret') => fetch(`${url}/${id}`, { headers: { authorization: `Bearer ${token}` } }), request: (body, token = 'test-secret') => fetch(url, {
+  return { app, validate: (body, token = 'test-secret') => fetch(url.replace('/deposits', '/payouts/validate'), {
+    method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body)
+  }), status: (id = 'stake-1', token = 'test-secret') => fetch(`${url}/${id}`, { headers: { authorization: `Bearer ${token}` } }), request: (body, token = 'test-secret') => fetch(url, {
     method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body)
   }) };
 }
 const input = { paymentId: 'stake-1', amountAtomic: '1000000' };
 const invoice = { invoice: 'rgb:test', recipientId: 'sbc:wvout:test', expirationTimestamp: 1900000000 };
+
+test('payout validation is private and distinguishes invalid invoices from decoder outages', async t => {
+  let offline = false;
+  let calls = 0;
+  const { validate } = await fixture(t, async () => { throw new Error('Must not create an invoice.'); }, undefined, async () => {
+    calls++;
+    if (offline) throw new Error('unavailable');
+    return null;
+  });
+  const body = { invoice: 'rgb:invalid', amountAtomic: '1000000' };
+  assert.equal((await validate(body, 'wrong')).status, 401);
+  assert.equal((await validate({ ...body, amountAtomic: 1000000 })).status, 400);
+  assert.equal(calls, 0);
+  const invalid = await validate(body);
+  assert.equal(invalid.status, 422);
+  assert.equal((await invalid.json()).valid, false);
+  offline = true;
+  assert.equal((await validate(body)).status, 503);
+});
 
 test('private deposits persist one invoice across concurrent retries and reject changed amounts', async t => {
   let calls = 0;

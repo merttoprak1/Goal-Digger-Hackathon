@@ -5,6 +5,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { timingSafeEqual } from 'node:crypto';
+import { validatePayoutInvoice } from './payout-invoice.mjs';
 
 const assetId = 'rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0';
 const error = (status, message) => Object.assign(new Error(message), { status });
@@ -57,7 +58,20 @@ export function assessDeposit(saved, snapshot) {
   return { status: 'unknown', txid };
 }
 
-export function createVaultServer({ token, databasePath, issueInvoice: issue = issueInvoice, readDeposit: inspect = readDeposit }) {
+function decodeInvoice(invoice) {
+  const cwd = fileURLToPath(new URL('./wdk/', import.meta.url));
+  return new Promise((resolve, reject) => execFile(`${cwd}/node_modules/.bin/bare`, ['decode-invoice.mjs', invoice],
+    { cwd, timeout: 10_000, maxBuffer: 65536 }, (err, stdout) => {
+      if (err) return reject(new Error('The invoice decoder is unavailable.'));
+      try {
+        const result = JSON.parse(stdout);
+        if (!Object.hasOwn(result, 'decoded')) throw new Error();
+        resolve(result.decoded);
+      } catch { reject(new Error('The decoder returned an invalid response.')); }
+    }));
+}
+
+export function createVaultServer({ token, databasePath, issueInvoice: issue = issueInvoice, readDeposit: inspect = readDeposit, decodeInvoice: decode = decodeInvoice }) {
   if (typeof token !== 'string' || !token) throw new Error('Set VAULT_API_TOKEN before starting the vault.');
   mkdirSync(dirname(databasePath), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(databasePath);
@@ -95,7 +109,8 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
         reply(200, await operation);
         return;
       }
-      if (req.url !== '/vault/deposits') throw error(404, 'Endpoint not found.');
+      const payoutValidation = req.url === '/vault/payouts/validate';
+      if (req.url !== '/vault/deposits' && !payoutValidation) throw error(404, 'Endpoint not found.');
       if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); throw error(405, 'Use POST for this endpoint.'); }
       if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw error(415, 'Send Content-Type: application/json.');
       let raw = '';
@@ -105,6 +120,16 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
       }
       let body;
       try { body = JSON.parse(raw); } catch { throw error(400, 'Send valid JSON.'); }
+      if (payoutValidation) {
+        if (!body || Object.keys(body).sort().join(',') !== 'amountAtomic,invoice' ||
+            typeof body.invoice !== 'string' || !body.invoice.startsWith('rgb:') || body.invoice.length > 3000 ||
+            typeof body.amountAtomic !== 'string' || !/^[1-9][0-9]{0,8}$/.test(body.amountAtomic) || BigInt(body.amountAtomic) > 100_000_000n) {
+          throw error(400, 'Send an RGB invoice and amountAtomic as strings. The test limit is 100 USDT.');
+        }
+        const result = validatePayoutInvoice(await decode(body.invoice), body.amountAtomic);
+        reply(result.valid ? 200 : 422, result);
+        return;
+      }
       if (!body || Object.keys(body).sort().join(',') !== 'amountAtomic,paymentId' ||
           typeof body.paymentId !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(body.paymentId) ||
           typeof body.amountAtomic !== 'string' || !/^[1-9][0-9]{0,8}$/.test(body.amountAtomic) || BigInt(body.amountAtomic) > 100_000_000n) {
