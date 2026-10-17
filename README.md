@@ -214,7 +214,7 @@ Reference: [RGB Lightning Node API specification](https://github.com/RGB-Tools/r
 
 ## Test transfer status
 
-The sender settled a transfer of 1 test USDT to Ege. Final recipient confirmation remains pending. See [the transfer record](docs/RGB-TRANSFER.md).
+The transfer of 1 test USDT to Ege is verified. The sender has 99 test USDT spendable, and Ege reported 101 test USDT settled and spendable. See [the transfer record](docs/RGB-TRANSFER.md).
 
 ## Prior work
 No application code yet. Only the environment setup above existed before the hackathon; all app code is written during the event in dated commits.

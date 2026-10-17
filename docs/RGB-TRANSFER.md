@@ -28,7 +28,9 @@ After the sender refreshed, its status changed from WaitingCounterparty to Waiti
 
 The sender then reported Settled. Its settled, projected, and spendable balances all became 99 test USDT.
 
-The recipient's final status and updated balance still need confirmation. Task 4 remains in progress.
+Ege then supplied an asset balance showing 101,000,000 atomic units as settled, projected, and spendable: 101 test USDT.
+
+The sender's settled transfer and Ege's recipient balance confirm the test receipt. Task 4 is complete.
 
 ## Check the existing transfer
 
@@ -45,7 +47,7 @@ Read the asset balance:
 kaleido asset balance 'rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0'
 ```
 
-Refresh and balance commands do not create another transfer. Do not send again while this transfer is pending.
+Refresh and balance commands do not create another transfer. This recorded transfer is complete. Do not repeat the send request.
 
 ## CLI compatibility finding
 

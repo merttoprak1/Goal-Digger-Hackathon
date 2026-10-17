@@ -10,6 +10,7 @@ Branch: `qvac-RGB`. Complete one task, check it, then commit and push before sta
 - [x] Add POST /qvac/ask with input limits and service errors.
 - [x] Add POST /qvac/assess for the fixed math demonstration.
 - [x] Add GET /rgb/wallet for cached balances and assets.
+- [x] Complete a real transfer of 1 test USDT to Ege.
 
 ## 1. Add one QVAC request endpoint (complete)
 
@@ -51,9 +52,9 @@ An empty asset list must appear as empty. It must not appear as a funded USDT wa
 
 Suggested commit: `Add read-only RGB wallet endpoint`.
 
-## 4. Complete one real test transfer
+## 4. Complete one real test transfer (complete)
 
-Status: sender transfer settled at 99 test USDT. Ege's final receipt confirmation remains pending.
+Status: the sender reports Settled with 99 test USDT spendable. Ege supplied a settled and spendable balance of 101 test USDT.
 
 See [the transfer record](docs/RGB-TRANSFER.md) for the transaction ID and checks.
 
@@ -93,4 +94,4 @@ Keep changes on the assigned branch. Merge shared changes normally. Never stash,
 
 ## Next action
 
-Finish task 4 by confirming Ege's settled transfer and updated asset balance.
+Start task 5 by agreeing on the payment endpoint and response fields with Ege. Keep the first integration change small.
