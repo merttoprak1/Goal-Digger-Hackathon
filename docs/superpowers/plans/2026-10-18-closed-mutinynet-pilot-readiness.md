@@ -55,11 +55,11 @@
 - Test: `api/tests/outcomes.test.ts`
 
 **Interfaces:**
-- The proof store gains `beginProofReview(id, statement)`, `getProofReview(id)`, `saveProofNote(id, statement, submittedAt, review)`, and `clearPendingProofReview(id, statement)`.
-- Existing accepted custom proof is terminal and cannot be overwritten. One pending review per challenge is durable; only the exact same evidence can retry it. New evidence still requires an open proof window.
+- The proof store gains `beginProofReview(id, statement)`, `getProofReview(id)`, `saveProofNote(id, statement, submittedAt, review)`, and `clearPendingProofReview(id, statement, submittedAt)`.
+- Existing accepted custom proof is terminal and cannot be overwritten. One pending review per challenge is durable; only the exact same evidence can retry it. New evidence still requires an open proof window. One in-process Goaly review runs per challenge at a time.
 - `finalizeOutcome` returns HTTP 409 `PROOF_REVIEW_PENDING` while a timely custom proof is unresolved. Successful accepted/rejected/unclear reviews resolve the pending row; only accepted proof is success-eligible.
 
-- [ ] **Step 1: Write failing API tests** for QVAC failure leaving a pending record, finalization being blocked during pending review, same-evidence retry resolving it after restart, changed evidence being blocked while pending, and accepted proof not being overwritten.
+- [ ] **Step 1: Write failing API tests** for QVAC failure leaving a pending record, finalization being blocked during pending review, same-evidence retry resolving it after restart, changed evidence being blocked while pending, accepted proof not being overwritten, and duplicate concurrent reviews being rejected.
 - [ ] **Step 2: Run** `npm test -- --run tests/outcomes.test.ts` from `api/`; confirm the outage/finalization tests fail against the current store.
 - [ ] **Step 3: Implement** durable pending-review state and exact-evidence retry; use the original submission timestamp for deadline eligibility and retain an accepted proof as terminal.
 - [ ] **Step 4: Run** the focused tests, then `npm test`, `npm run typecheck`, and `npm run lint` from `api/`.

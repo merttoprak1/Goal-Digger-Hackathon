@@ -15,6 +15,7 @@ const invoiceBody = z
 
 export function registerSettlementRoutes(router: Router, context: ChallengeContext): void {
   const { store, proofReviewer } = context;
+  const activeProofReviews = new Set<string>();
 
   router.post("/:id/proof-note", async (req, res) => {
     const id = String(req.params.id);
@@ -30,35 +31,56 @@ export function registerSettlementRoutes(router: Router, context: ChallengeConte
     if (!parsed.success) {
       throw new ApiError(400, "Send a proof statement of 3 to 1000 characters.", "INVALID_PROOF");
     }
-    if (Date.now() >= Date.parse(challenge.proofDeadline)) {
+    const statement = parsed.data.statement;
+    const existingReview = store.getProofReview(id);
+    const retriesPendingEvidence =
+      existingReview?.reviewVerdict === "pending" && existingReview.statement === statement;
+    const repeatsAcceptedEvidence =
+      existingReview?.reviewVerdict === "accepted" && existingReview.statement === statement;
+    if (
+      Date.now() >= Date.parse(challenge.proofDeadline) &&
+      !retriesPendingEvidence &&
+      !repeatsAcceptedEvidence
+    ) {
       throw new ApiError(409, "The proof deadline has passed.", "PROOF_WINDOW_CLOSED");
     }
-    const review = await proofReviewer({
-      challengeId: id,
-      proofMethod: "custom",
-      successRule: challenge.successRule,
-      evidence: parsed.data.statement,
-    });
-    if (Date.now() >= Date.parse(challenge.proofDeadline)) {
+    const attempt = store.beginProofReview(id, statement);
+    if (attempt.status === "accepted") {
+      res.json({ saved: true, review: attempt.review });
+      return;
+    }
+    if (activeProofReviews.has(id)) {
       throw new ApiError(
         409,
-        "The proof deadline passed before Goaly finished reviewing this evidence. The proof was not saved.",
-        "PROOF_WINDOW_CLOSED",
+        "Goaly is already reviewing this proof. Retry the same evidence after that request finishes.",
+        "PROOF_REVIEW_PENDING",
       );
     }
-    if (review.verdict === "unclear") {
-      throw new ApiError(
-        422,
-        "Goaly could not assess this evidence clearly. Submit clearer proof while the proof window is open.",
-        "PROOF_REVIEW_UNCLEAR",
-      );
+    activeProofReviews.add(id);
+    try {
+      const review = await proofReviewer({
+        challengeId: id,
+        proofMethod: "custom",
+        successRule: challenge.successRule,
+        evidence: statement,
+      });
+      if (review.verdict === "unclear") {
+        store.clearPendingProofReview(id, statement, attempt.submittedAt);
+        throw new ApiError(
+          422,
+          "Goaly could not assess this evidence clearly. Submit clearer proof while the proof window is open.",
+          "PROOF_REVIEW_UNCLEAR",
+        );
+      }
+      const recordedReview = {
+        ...review,
+        verdict: review.verdict === "accepted" ? "accepted" as const : "rejected" as const,
+      };
+      const saved = store.saveProofNote(id, statement, attempt.submittedAt, recordedReview);
+      res.json({ saved: true, review: saved.review });
+    } finally {
+      activeProofReviews.delete(id);
     }
-    const recordedReview = {
-      ...review,
-      verdict: review.verdict === "accepted" ? "accepted" as const : "rejected" as const,
-    };
-    store.saveProofNote(id, parsed.data.statement, recordedReview);
-    res.json({ saved: true, review: recordedReview });
   });
 
   router.post("/:id/finalize", (req, res) => {
