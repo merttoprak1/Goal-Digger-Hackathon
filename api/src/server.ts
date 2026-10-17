@@ -8,6 +8,6 @@ const server = app.listen(env.PORT, "127.0.0.1", () => {
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    server.close(() => {app.locals.sessionStore.close();process.exit(0);});
+    server.close(() => {app.locals.close();process.exit(0);});
   });
 }

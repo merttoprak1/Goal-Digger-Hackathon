@@ -46,6 +46,11 @@ export function openStakeDeposits({ databasePath, token, fetchService = fetch })
     }
   }
   return {
+    getInvoice(paymentId) {
+      if (!validId(paymentId)) throw new Error('Invalid payment ID.');
+      const row = read.get(paymentId);
+      return row?.invoice ? JSON.parse(row.invoice) : null;
+    },
     async bind(binding) {
       if (!binding || Object.keys(binding).sort().join(',') !== 'amountAtomic,challengeId,participantId,paymentId' ||
           ![binding.paymentId, binding.challengeId, binding.participantId].every(validId) ||

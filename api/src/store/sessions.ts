@@ -29,6 +29,10 @@ export function openSessions(databasePath:string,now:()=>number=Date.now){
    const row=db.prepare('SELECT p.* FROM sessions s JOIN participants p ON p.id=s.participant_id WHERE s.token_hash=? AND s.expires_at>?').get(hash(token),now());
    return row?{id:String(row.id),displayName:String(row.display_name),createdAt:String(row.created_at)}:null;
   },
+  listStakeCredits(challengeId:string){
+   if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='stake_credits'").get())return [];
+   return db.prepare('SELECT d.payment_id,d.participant_id,d.amount,c.credited_at FROM stake_deposits d JOIN stake_credits c ON c.payment_id=d.payment_id WHERE d.challenge_id=?').all(challengeId).map(row=>({paymentId:String(row.payment_id),participantId:String(row.participant_id),amountAtomic:String(row.amount),creditedAt:String(row.credited_at)}));
+  },
   createChallenge(creatorId:string,input:ChallengeDraftInput){
    const challenge={...input,id:randomUUID(),creatorId,status:'draft' as const,confirmedPoolAtomic:'0',createdAt:new Date(now()).toISOString()};
    db.prepare('INSERT INTO challenges VALUES(?,?,?,?)').run(challenge.id,creatorId,challenge.createdAt,JSON.stringify(challenge));

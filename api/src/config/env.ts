@@ -5,6 +5,7 @@ import { z } from "zod";
 const schema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4002),
   DATABASE_PATH: z.string().min(1).default(fileURLToPath(new URL("../../data/api.sqlite",import.meta.url))),
+  VAULT_API_TOKEN: z.string().min(1).optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   // NOTE: when RGB/Bitcoin integration lands, add an explicit network setting here,
   // e.g. BTC_NETWORK: z.enum(["regtest", "signet", "testnet", "mainnet"])
