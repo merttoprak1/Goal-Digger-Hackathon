@@ -245,6 +245,7 @@ function ArbiterPanel({
   const [stake, setStake] = useState("10");
   const [working, setWorking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [flash, setFlash] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const nextId = useRef(arbiter.greeting.length);
@@ -288,7 +289,11 @@ function ArbiterPanel({
     schedule(() => setSpeaking(false), ms);
   }
 
-  /** Card buttons pre-fill the proposal form, same as the preset chips. */
+  /**
+   * Card buttons pre-fill the proposal form, same as the preset chips — except
+   * here the values arrive from somewhere else on the page, so the panel flashes
+   * to show where they came from.
+   */
   useEffect(() => {
     if (!prefill) return;
     const { challenge } = prefill;
@@ -297,6 +302,10 @@ function ArbiterPanel({
     );
     setStake(challenge.stakeUsdt);
     inputRef.current?.focus();
+
+    setFlash(true);
+    const timer = window.setTimeout(() => setFlash(false), 1100);
+    return () => window.clearTimeout(timer);
   }, [prefill]);
 
   function applyPreset(preset: (typeof PRESETS)[number]) {
@@ -332,6 +341,18 @@ function ArbiterPanel({
   return (
     <aside className="relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm lg:col-span-5">
       <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-indigo-50/60 blur-3xl" />
+
+      {/* Ring that fades out where the card handed its values over. */}
+      {flash ? (
+        <motion.span
+          key={prefill?.nonce}
+          aria-hidden="true"
+          initial={{ opacity: 0.8 }}
+          animate={{ opacity: 0 }}
+          transition={{ duration: 1.1, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-0 z-20 rounded-2xl ring-2 ring-indigo-500 ring-inset"
+        />
+      ) : null}
 
       <div className="relative z-10 flex items-center justify-between border-b border-slate-100 pb-3.5">
         <div className="flex items-center gap-2">
@@ -426,12 +447,31 @@ function ArbiterPanel({
             <span>Propose Contract to Arbiter</span>
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
           </label>
-          <span className="text-[11px] font-semibold text-indigo-600">
-            Oracle settlement
-          </span>
+          {/* Keyed swap rather than AnimatePresence: a transient badge must not
+              wait for an exit animation before it can appear. */}
+          <motion.span
+            key={flash ? "prefilled" : "settlement"}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: EASE }}
+            className={
+              flash
+                ? "rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-indigo-700 uppercase"
+                : "text-[11px] font-semibold text-indigo-600"
+            }
+          >
+            {flash ? "Prefilled from card" : "Oracle settlement"}
+          </motion.span>
         </div>
 
-        <div className="relative rounded-2xl border border-slate-200 bg-slate-50 p-2.5 shadow-sm transition focus-within:border-indigo-500 focus-within:bg-white">
+        <div
+          className={[
+            "relative rounded-2xl border p-2.5 shadow-sm transition-colors duration-500 focus-within:border-indigo-500 focus-within:bg-white",
+            flash
+              ? "border-indigo-400 bg-indigo-50/60"
+              : "border-slate-200 bg-slate-50",
+          ].join(" ")}
+        >
           <textarea
             id="goal-input"
             ref={inputRef}
@@ -448,7 +488,14 @@ function ArbiterPanel({
             className="w-full resize-none border-0 bg-transparent p-0 text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
           />
           <div className="mt-1 flex items-center justify-between border-t border-slate-200/60 pt-2">
-            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1">
+            <div
+              className={[
+                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 transition-colors duration-500",
+                flash
+                  ? "border-indigo-400 bg-indigo-50"
+                  : "border-slate-200/90 bg-white",
+              ].join(" ")}
+            >
               <span className="text-[11px] font-medium text-slate-500">
                 Stake:
               </span>
