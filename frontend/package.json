@@ -1,0 +1,31 @@
+{
+  "name": "goal-digger-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "start": "vite preview --port 4173 --strictPort",
+    "typecheck": "react-router typegen && tsc"
+  },
+  "dependencies": {
+    "@react-router/node": "7.18.4",
+    "isbot": "^5.1.36",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "7.18.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@react-router/dev": "7.18.4",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "daisyui": "^5.7.50",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7",
+    "vite-tsconfig-paths": "^6.1.1"
+  }
+}
