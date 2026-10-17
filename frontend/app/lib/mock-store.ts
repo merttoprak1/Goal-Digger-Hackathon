@@ -35,7 +35,6 @@ export const ARBITER: ArbiterProfile = {
   name: "Goaly",
   role: "Chief Arbiter",
   agent: "QVAC Agent",
-  accuracy: "98% Accuracy",
   statusText: "Goaly is supervising the chain...",
   greeting: [
     "Yo! Ready to put your USDT where your mouth is? Name your challenge and stake, or pick a preset below. No slackers allowed on Mutinynet!",

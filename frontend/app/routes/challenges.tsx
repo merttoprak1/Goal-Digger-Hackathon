@@ -354,7 +354,7 @@ function ArbiterPanel({
         />
       ) : null}
 
-      <div className="relative z-10 flex items-center justify-between border-b border-slate-100 pb-3.5">
+      <div className="relative z-10 flex items-center border-b border-slate-100 pb-3.5">
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-2 text-sm font-bold tracking-tight text-slate-900">
             <span className="relative flex h-2.5 w-2.5">
@@ -365,11 +365,6 @@ function ArbiterPanel({
           </span>
           <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
             {arbiter.agent}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-          <span className="rounded-md border border-violet-100 bg-violet-50 px-2 py-0.5 text-violet-700">
-            {arbiter.accuracy}
           </span>
         </div>
       </div>

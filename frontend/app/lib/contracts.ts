@@ -57,7 +57,6 @@ export interface ArbiterProfile {
   name: string;
   role: string;
   agent: string;
-  accuracy: string;
   statusText: string;
   /** First messages in the conversation feed. */
   greeting: string[];
