@@ -106,13 +106,13 @@ function ProfileHero({ profile }: { profile: UserProfile }) {
             <Icon name="edit" className="text-[17px]" />
             Edit Profile
           </button>
-          <button
-            type="button"
+          <Link
+            to="/wallet"
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 sm:flex-none"
           >
             <Icon name="account_balance" className="text-[17px]" />
             Deposit / Cashout
-          </button>
+          </Link>
           <button
             type="button"
             title="Settings"

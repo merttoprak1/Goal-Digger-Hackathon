@@ -6,7 +6,9 @@ import {
   type ChallengesSnapshot,
   type CreateChallengeRequest,
   type HealthResponse,
+  type PayoutSnapshot,
   type ProfileSnapshot,
+  type WalletSnapshot,
 } from "./contracts";
 import * as mocks from "./mock-store";
 
@@ -106,6 +108,24 @@ export async function fetchProfileSnapshot(): Promise<ProfileSnapshot> {
   return request<ProfileSnapshot>("/profile/snapshot");
 }
 
+/** Everything the Wallet screen needs in one round trip. */
+export async function fetchWalletSnapshot(): Promise<WalletSnapshot> {
+  if (MOCKS_ENABLED) {
+    await delay();
+    return mocks.getWalletSnapshot();
+  }
+  return request<WalletSnapshot>("/wallet/snapshot");
+}
+
+/** Everything the Payout screen needs in one round trip. */
+export async function fetchPayoutSnapshot(): Promise<PayoutSnapshot> {
+  if (MOCKS_ENABLED) {
+    await delay();
+    return mocks.getPayoutSnapshot();
+  }
+  return request<PayoutSnapshot>("/payout/snapshot");
+}
+
 export async function fetchChallenge(id: string): Promise<Challenge | null> {
   if (MOCKS_ENABLED) {
     await delay();
@@ -153,4 +173,25 @@ export async function createChallenge(
     body: JSON.stringify(input),
   });
   return challenge;
+}
+
+/** Claim one settled pool and get the refreshed payout snapshot back. */
+export async function claimPayout(id: string): Promise<PayoutSnapshot> {
+  if (MOCKS_ENABLED) {
+    await delay(150);
+
+    const snapshot = mocks.claimPayout(id);
+    if (!snapshot) {
+      throw new ApiError(
+        404,
+        "PAYOUT_NOT_FOUND",
+        "That payout is no longer claimable.",
+      );
+    }
+    return snapshot;
+  }
+
+  return request<PayoutSnapshot>(`/payout/${encodeURIComponent(id)}/claim`, {
+    method: "POST",
+  });
 }

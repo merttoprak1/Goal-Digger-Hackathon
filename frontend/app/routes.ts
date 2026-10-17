@@ -6,6 +6,8 @@ export default [
   route("challenges/new", "routes/challenge-new.tsx"),
   route("challenges/:challengeId", "routes/challenge.tsx"),
   route("profile", "routes/profile.tsx"),
+  route("wallet", "routes/wallet.tsx"),
+  route("payout", "routes/payout.tsx"),
   route("proofs", "routes/proofs.tsx"),
   route("ledger", "routes/ledger.tsx"),
 ] satisfies RouteConfig;

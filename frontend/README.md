@@ -50,7 +50,9 @@ See [SPA Mode](https://reactrouter.com/how-to/spa) for details.
 ## Design
 
 The UI follows the approved **“Goal Digger”** board from the design handoff and
-covers three screens.
+covers five screens. Wallet and Payout have no board of their own — they are
+built out of the same language, around the escrow and settlement flows the other
+three screens depend on.
 
 Shared visual language:
 
@@ -63,8 +65,8 @@ Shared visual language:
 - **Icons:** Material Symbols Outlined (loaded with `display=block`, rendered
   through `app/components/icon.tsx`). The arena keeps its emoji labels.
 - **Header:** one row — logo, centered nav pills (Challenges / Create Challenge /
-  Profile), a Mutinynet status pill, and the placeholder profile avatar linking
-  to `/profile`.
+  Wallet / Payout / Profile), a Mutinynet status pill, and the placeholder
+  profile avatar linking to `/profile`.
 - **Chats:** the two arbiter transcripts (the arena panel and the create builder)
   are bounded, independently scrollable feeds (`.chat-feed`). They follow new
   messages only while you are already at the bottom, so scrolling up to re-read
@@ -104,6 +106,32 @@ Hero with the placeholder avatar and a copy-address control, three stat cards
 cards on the left (`lg:col-span-8`), and a right column (`lg:col-span-4`) with
 the Goaly arbiter card and the wallet balance breakdown.
 
+The hero’s **Deposit / Cashout** button links to `/wallet`.
+
+### `/wallet` — balance, escrow and activity
+
+A dark balance card carries the spendable USDT, the Mutinynet address with a copy
+control, and **Deposit** / **Cashout** buttons that open a drawer underneath:
+Deposit reveals the full funding address, Cashout shows the fee and destination
+and explains why the button itself waits for the RGB rail.
+
+Below it: three stat cards (available, locked in escrow, tBTC reserve), the escrow
+breakdown — one row per funded DLC, each linking to its challenge — and the
+activity ledger. The escrow side reads from `WALLET.lockedUsdt`, while the
+spendable side *is* `WALLET_BALANCE`, so this screen and the profile balance card
+can never disagree.
+
+### `/payout` — settled pools
+
+A dark hero shows the claimable total next to lifetime winnings and what is still
+waiting on the oracle, with a shortcut that claims the next settlement outright.
+Three tabs (Claimable / Awaiting Oracle / History) filter the list.
+
+**Claim** posts to the API and moves the settlement into the wallet: the pool
+leaves the queue, the claimable total counts down, a receipt appears with a link
+to `/wallet`, and the ledger gains a `Payout claimed` row. That round trip is real
+against the in-memory store, which is why a plain page reload still resets it.
+
 ### Avatars and mascot assets
 
 User avatars (`app/components/avatar.tsx`) render a Facebook-style placeholder —
@@ -140,6 +168,8 @@ app/
     challenge.tsx         Challenge detail
     challenge-new.tsx     Create custom challenge (chat-driven builder)
     profile.tsx           User profile, stakes, arbiter and wallet
+    wallet.tsx            Balance, escrow breakdown and activity ledger
+    payout.tsx            Claimable settlements, oracle queue and history
     proofs.tsx            My Proofs (placeholder)
     ledger.tsx            Pool Ledger (placeholder)
 public/
@@ -150,14 +180,15 @@ public/
 Path alias: `~/*` → `app/*` (via `vite-tsconfig-paths`).
 
 The design's boards have no shared navigation, so the header adds centered nav
-pills to the three screens plus a Mutinynet status pill. `/proofs` and `/ledger`
+pills to the five screens plus a Mutinynet status pill. `/proofs` and `/ledger`
 still exist but are not linked, since their boards are not built yet.
 
 ## Talking to the API
 
 `app/lib/api.ts` is the only place that talks to the backend. It exposes
 `fetchHealth`, `fetchChallengesSnapshot`, `fetchChallenges`, `fetchChallenge`,
-`fetchProfileSnapshot`, and `createChallenge`.
+`fetchProfileSnapshot`, `fetchWalletSnapshot`, `fetchPayoutSnapshot`,
+`createChallenge` and `claimPayout`.
 
 **Right now it runs against in-memory mocks** (`app/lib/mock-store.ts`), so the
 UI works before the Express API exists. Reset the seed data from the browser
@@ -217,13 +248,15 @@ and React components come from `motion/react` — plus plain CSS for everything
 that does not need JavaScript.
 
 **Motion handles:** route transitions (`root.tsx`), the header nav pill gliding
-between tabs, the stake chips and profile tabs doing the same, the deploy stage
-checklist that runs before the arena route changes, the counts in
-`components/count-up.tsx` (profile stats, wallet balance, and the summary XP as
-the stake is edited), the arbiter panel flashing when a card prefills it, chat
-bubbles easing in, the “Goaly is typing” bubble, the arena card stagger with its
-hover lift, the profile tab cross-fade, the spring check badge on the selected
-visibility card, and the mascot squash on poke.
+between tabs, the stake chips, profile tabs and payout tabs doing the same, the
+deploy stage checklist that runs before the arena route changes, the counts in
+`components/count-up.tsx` (profile stats, wallet balance, payout totals, and the
+summary XP as the stake is edited), the arbiter panel flashing when a card
+prefills it, chat bubbles easing in, the “Goaly is typing” bubble, the arena card
+stagger with its hover lift, the profile and payout tab cross-fades, the spring
+check badge on the selected visibility card, the deposit / cashout drawer
+unfolding under the balance card, the tick swapping in on the copy controls, and
+the mascot squash on poke.
 
 **CSS handles:** hover colours, the mascot float/bob, status pings, the
 `.chat-feed` scrollbar, and the `.skeleton-shimmer` sweep on the hydration
@@ -243,7 +276,10 @@ system for less motion get the same layout without the transforms — matching t
 - Pool Ledger
 - Real counter-stake and settlement wiring (the arbiter panel and the proposal
   and create forms are UI-only today)
-- Persistence — mocks live in memory, so a reload resets everything
+- Cashouts — the wallet’s Cashout drawer shows the fee and destination, but the
+  button itself waits for the RGB escrow rail
+- Persistence — mocks live in memory, so a reload resets everything, including
+  claims made on `/payout`
 
 ## Known warnings
 

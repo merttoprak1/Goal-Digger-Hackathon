@@ -185,6 +185,79 @@ export interface ProfileSnapshot {
   balance: WalletBalance;
 }
 
+/* --------------------------------- wallet -------------------------------- */
+
+/** How a wallet entry moved money; drives its icon, sign and colour. */
+export type WalletEntryKind = "deposit" | "lock" | "release" | "payout" | "fee";
+
+export interface WalletEntry {
+  id: string;
+  label: string;
+  /** Where it came from, e.g. `DLC #8942-B`. */
+  detail: string;
+  /** Signed, formatted amount, e.g. `+18.20` or `-2.50`. */
+  amount: string;
+  unit: "USDT" | "tBTC";
+  kind: WalletEntryKind;
+  badge: StakeBadge;
+  timestamp: string;
+}
+
+/** A challenge currently holding part of the balance in escrow. */
+export interface EscrowHold {
+  /** Matches a challenge id, so the row can link back to it. */
+  id: string;
+  title: string;
+  amountUsdt: string;
+  /** The funding outpoint, shown as a footnote. */
+  via: string;
+}
+
+export interface WalletSnapshot {
+  network: string;
+  address: string;
+  availableUsdt: string;
+  lockedUsdt: string;
+  tbtc: string;
+  /** USD value of the tBTC balance, pre-formatted. */
+  tbtcUsd: string;
+  stats: ProfileStat[];
+  holds: EscrowHold[];
+  entries: WalletEntry[];
+}
+
+/* --------------------------------- payout -------------------------------- */
+
+/** One pool, either ready to claim or still waiting on the oracle. */
+export interface PayoutPool {
+  id: string;
+  title: string;
+  amountUsdt: string;
+  /** Which oracle evidence settled it. */
+  proof: string;
+  /** Short timing line, e.g. `Settled 2 hours ago`. */
+  timing: string;
+}
+
+export interface PayoutHistoryRow {
+  id: string;
+  title: string;
+  amountUsdt: string;
+  result: "won" | "lost";
+  at: string;
+}
+
+export interface PayoutSnapshot {
+  claimableUsdt: string;
+  awaitingUsdt: string;
+  lifetimeUsdt: string;
+  /** Settled pools all time, won or lost. */
+  settledCount: number;
+  claimable: PayoutPool[];
+  pending: PayoutPool[];
+  history: PayoutHistoryRow[];
+}
+
 /* ------------------------------- responses ------------------------------- */
 
 export interface HealthResponse {

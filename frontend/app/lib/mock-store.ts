@@ -4,6 +4,10 @@ import type {
   ChallengesSnapshot,
   ChallengeTemplate,
   CreateChallengeRequest,
+  EscrowHold,
+  PayoutHistoryRow,
+  PayoutPool,
+  PayoutSnapshot,
   ProfileArbiter,
   ProfileSnapshot,
   ProfileStake,
@@ -11,6 +15,8 @@ import type {
   ProtocolStatus,
   UserProfile,
   WalletBalance,
+  WalletEntry,
+  WalletSnapshot,
 } from "./contracts";
 
 /**
@@ -333,6 +339,275 @@ export function getProfileSnapshot(): ProfileSnapshot {
     arbiter: PROFILE_ARBITER,
     balance: WALLET_BALANCE,
   };
+}
+
+/* --------------------------------- wallet -------------------------------- */
+
+/** Trim a raw number to the two decimals the ledger shows. */
+function money(value: number): string {
+  return value.toFixed(2);
+}
+
+interface WalletState {
+  network: string;
+  address: string;
+  lockedUsdt: number;
+  tbtcUsd: string;
+  holds: EscrowHold[];
+  entries: WalletEntry[];
+}
+
+/**
+ * The spendable side of the wallet is `WALLET_BALANCE`, so the profile balance
+ * card and this screen can never disagree. Only the escrow side lives here.
+ */
+const WALLET: WalletState = {
+  network: "Mutinynet",
+  address: USER.walletAddress,
+  lockedUsdt: 10,
+  tbtcUsd: "$1,284.40",
+  holds: [
+    {
+      id: "run-10km",
+      title: "Run 10 km before 09:00",
+      amountUsdt: "2.50",
+      via: "DLC #8942-B",
+    },
+    {
+      id: "leetcode-3hard",
+      title: "Solve 3 LeetCode Hard",
+      amountUsdt: "5.00",
+      via: "DLC #8951-A",
+    },
+    {
+      id: "wake-up-0700",
+      title: "Wake up at 07:00",
+      amountUsdt: "2.50",
+      via: "DLC #8960-C",
+    },
+  ],
+  entries: [
+    {
+      id: "w-payout-7721",
+      label: "Payout received",
+      detail: "Pool #7721 • Zero sugar for 3 days",
+      amount: "+18.20",
+      unit: "USDT",
+      kind: "payout",
+      badge: { label: "Confirmed", tone: "emerald" },
+      timestamp: "2 hours ago",
+    },
+    {
+      id: "w-lock-8960",
+      label: "Stake locked",
+      detail: "DLC #8960-C • Wake up at 07:00",
+      amount: "-2.50",
+      unit: "USDT",
+      kind: "lock",
+      badge: { label: "Locked", tone: "blue" },
+      timestamp: "5 hours ago",
+    },
+    {
+      id: "w-release-8907",
+      label: "Stake released",
+      detail: "DLC #8907-D expired, stake refunded",
+      amount: "+2.50",
+      unit: "USDT",
+      kind: "release",
+      badge: { label: "Confirmed", tone: "emerald" },
+      timestamp: "Yesterday",
+    },
+    {
+      id: "w-fee-3f9c",
+      label: "Miner fee",
+      detail: "Taproot funding tx 3f9c…71a2",
+      amount: "-0.00001200",
+      unit: "tBTC",
+      kind: "fee",
+      badge: { label: "Confirmed", tone: "emerald" },
+      timestamp: "Yesterday",
+    },
+    {
+      id: "w-deposit-faucet",
+      label: "Deposit",
+      detail: "Mutinynet faucet",
+      amount: "+50.00",
+      unit: "USDT",
+      kind: "deposit",
+      badge: { label: "Confirmed", tone: "emerald" },
+      timestamp: "3 days ago",
+    },
+    {
+      id: "w-lock-8951",
+      label: "Stake locked",
+      detail: "DLC #8951-A • Solve 3 LeetCode Hard",
+      amount: "-5.00",
+      unit: "USDT",
+      kind: "lock",
+      badge: { label: "Locked", tone: "blue" },
+      timestamp: "4 days ago",
+    },
+  ],
+};
+
+function walletStats(): ProfileStat[] {
+  return [
+    {
+      id: "available",
+      label: "Available",
+      value: WALLET_BALANCE.usdt,
+      unit: "USDT",
+      note: "Ready to stake or cash out",
+      noteTone: "emerald",
+      icon: "account_balance_wallet",
+      iconTone: "indigo",
+    },
+    {
+      id: "locked",
+      label: "Locked in Escrow",
+      value: money(WALLET.lockedUsdt),
+      unit: "USDT",
+      note: `${WALLET.holds.length} active DLCs`,
+      noteTone: "blue",
+      icon: "lock",
+      iconTone: "blue",
+    },
+    {
+      id: "tbtc",
+      label: "tBTC Reserve",
+      value: WALLET_BALANCE.tbtc,
+      unit: "tBTC",
+      note: `≈ ${WALLET.tbtcUsd} paying the fees`,
+      noteTone: "slate",
+      icon: "currency_bitcoin",
+      iconTone: "indigo",
+    },
+  ];
+}
+
+export function getWalletSnapshot(): WalletSnapshot {
+  return {
+    network: WALLET.network,
+    address: WALLET.address,
+    availableUsdt: WALLET_BALANCE.usdt,
+    lockedUsdt: money(WALLET.lockedUsdt),
+    tbtc: WALLET_BALANCE.tbtc,
+    tbtcUsd: WALLET.tbtcUsd,
+    stats: walletStats(),
+    holds: WALLET.holds,
+    entries: WALLET.entries,
+  };
+}
+
+/* --------------------------------- payout -------------------------------- */
+
+const PAYOUT = {
+  claimableUsdt: 23.2,
+  awaitingUsdt: 12.5,
+  lifetimeUsdt: 184.6,
+  settledCount: 18,
+  claimable: [
+    {
+      id: "p-leetcode",
+      title: "Solve 3 LeetCode Hard",
+      amountUsdt: "12.50",
+      proof: "Oracle read three accepted submissions from the GitHub mirror",
+      timing: "Settled 2 hours ago",
+    },
+    {
+      id: "p-sugar",
+      title: "Zero sugar for 3 days",
+      amountUsdt: "10.70",
+      proof: "Oracle cleared every photo in the food log",
+      timing: "Settled yesterday",
+    },
+  ] as PayoutPool[],
+  pending: [
+    {
+      id: "p-run",
+      title: "Run 10 km before 09:00",
+      amountUsdt: "7.50",
+      proof: "Oracle verified the Strava GPS track",
+      timing: "Epoch closes in 3 hours",
+    },
+    {
+      id: "p-wake",
+      title: "Wake up at 06:30 AM",
+      amountUsdt: "5.00",
+      proof: "Oracle verified the SleepCycle export",
+      timing: "Epoch closes in 6 hours",
+    },
+  ] as PayoutPool[],
+  history: [
+    {
+      id: "h-read",
+      title: "Read 30 minutes daily",
+      amountUsdt: "8.40",
+      result: "won",
+      at: "12 Oct 2026",
+    },
+    {
+      id: "h-commit",
+      title: "Commit code every day",
+      amountUsdt: "5.00",
+      result: "lost",
+      at: "09 Oct 2026",
+    },
+    {
+      id: "h-shower",
+      title: "Cold shower streak",
+      amountUsdt: "15.00",
+      result: "won",
+      at: "05 Oct 2026",
+    },
+    {
+      id: "h-sugar",
+      title: "Zero sugar for 3 days",
+      amountUsdt: "4.00",
+      result: "lost",
+      at: "01 Oct 2026",
+    },
+  ] as PayoutHistoryRow[],
+};
+
+export function getPayoutSnapshot(): PayoutSnapshot {
+  return {
+    claimableUsdt: money(PAYOUT.claimableUsdt),
+    awaitingUsdt: money(PAYOUT.awaitingUsdt),
+    lifetimeUsdt: money(PAYOUT.lifetimeUsdt),
+    settledCount: PAYOUT.settledCount,
+    claimable: PAYOUT.claimable,
+    pending: PAYOUT.pending,
+    history: PAYOUT.history,
+  };
+}
+
+/**
+ * Move one settled pool into the wallet: the claim leaves the payout queue,
+ * lands in the spendable balance and leaves a ledger entry behind. Mirrors the
+ * escrow release the RGB layer will perform once it is wired up.
+ */
+export function claimPayout(id: string): PayoutSnapshot | null {
+  const index = PAYOUT.claimable.findIndex((pool) => pool.id === id);
+  if (index === -1) return null;
+
+  const [pool] = PAYOUT.claimable.splice(index, 1);
+  const amount = Number(pool.amountUsdt);
+
+  PAYOUT.claimableUsdt = Number((PAYOUT.claimableUsdt - amount).toFixed(2));
+  WALLET_BALANCE.usdt = money(Number(WALLET_BALANCE.usdt) + amount);
+  WALLET.entries.unshift({
+    id: `w-claim-${pool.id}`,
+    label: "Payout claimed",
+    detail: `Pool settled • ${pool.title}`,
+    amount: `+${pool.amountUsdt}`,
+    unit: "USDT",
+    kind: "payout",
+    badge: { label: "Confirmed", tone: "emerald" },
+    timestamp: "Just now",
+  });
+
+  return getPayoutSnapshot();
 }
 
 if (typeof window !== "undefined") {
