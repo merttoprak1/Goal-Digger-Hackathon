@@ -8,7 +8,19 @@
 | Vesim Karadag | [@Vesimspace](https://github.com/Vesimspace) |
 
 ## Idea
-Set a challenge ("I'll wake up at 7am") and put USDT behind it. An on-device AI referee (QVAC) checks through your camera that you really did it, and the video never leaves your laptop. If you succeed, your USDT stays yours. If you fail, it moves into a Comeback Vault. Complete your next challenges to earn part of it back, or donate it to a charity of your choice. Every payment is a real RGB USDT transfer on Bitcoin.
+Set a challenge and stake USDT on completing it. Other participants can bet against you. All confirmed stakes form one pool.
+
+If you prove success before the deadline, you win the entire pool. Otherwise, opponents split the pool in proportion to their stakes.
+
+Start with three templates: wake up on time, pass an exam, and complete a run. Custom challenges declare their own proof method and source.
+
+Everyone sees the success rule, proof source, betting cutoff, and proof deadline before betting. These terms become fixed after the first opponent bets.
+
+Unclear evidence allows another attempt before the deadline. No accepted proof by the deadline means the creator loses. Charity is optional.
+
+QVAC assesses evidence locally against the declared rules. RGB handles the stakes and payouts on Bitcoin. The hackathon demo uses test assets on Mutinynet.
+
+See [PLAN.md](PLAN.md) for the team split, challenge templates, implementation steps, and open decisions.
 
 ## Stack
 - RGB Lightning Node + kaleido-cli
