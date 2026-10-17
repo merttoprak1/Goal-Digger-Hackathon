@@ -175,5 +175,42 @@ Run the assessment checks with:
 node --test assessment.test.mjs
 ```
 
+## Read RGB balances and assets
+
+With the node unlocked and `node server.mjs` running, request the wallet snapshot:
+
+```bash
+curl http://127.0.0.1:4000/rgb/wallet
+```
+
+The endpoint returns:
+
+| Field | Meaning |
+|---|---|
+| `network` | The network reported by the node |
+| `balanceSource` | `cached`, because this request skips blockchain synchronization |
+| `bitcoin` | Separate vanilla and colored bitcoin balances, in satoshis |
+| `assets` | RGB asset identifiers, schemas, names, tickers, precision, and balances |
+
+Each balance includes `settled`, `future`, and `spendable`. RGB balances also include `offchainOutbound` and `offchainInbound`.
+
+All amounts are integer strings. RGB amounts use atomic units. For example, `100000000` with precision 6 represents 100 asset units.
+
+Use the asset identifier and precision, rather than assuming that a ticker identifies an authentic asset. The demo uses test assets.
+
+An empty asset list returns `assets: []`. Invalid or unavailable data produces an error rather than zero balances.
+
+The endpoint returns HTTP 503 for an unavailable, locked, or inaccessible node. It returns 504 for a timeout and 502 for invalid upstream data.
+
+Requests time out after 10 seconds. The endpoint never returns wallet keys or sends transactions.
+
+Run the wallet checks with:
+
+```bash
+node --test rgb-wallet.test.mjs
+```
+
+Reference: [RGB Lightning Node API specification](https://github.com/RGB-Tools/rgb-lightning-node/blob/master/openapi.yaml).
+
 ## Prior work
 No application code yet. Only the environment setup above existed before the hackathon; all app code is written during the event in dated commits.

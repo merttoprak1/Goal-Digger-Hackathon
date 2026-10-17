@@ -9,6 +9,7 @@ Branch: `qvac-RGB`. Complete one task, check it, then commit and push before sta
 - [x] Add GET /health for both services.
 - [x] Add POST /qvac/ask with input limits and service errors.
 - [x] Add POST /qvac/assess for the fixed math demonstration.
+- [x] Add GET /rgb/wallet for cached balances and assets.
 
 ## 1. Add one QVAC request endpoint (complete)
 
@@ -38,9 +39,9 @@ Ege's backend must own challenge rules, deadlines, and final outcomes. A client-
 
 Suggested commit: `Add structured local evidence assessment`.
 
-## 3. Read RGB balances and assets
+## 3. Read RGB balances and assets (complete)
 
-Estimate: 20–30 minutes.
+Status: checked against the live node, including exact amount handling and failure responses.
 
 Add one read-only endpoint for the demo wallet's balances and RGB asset list. Return only the fields the app needs.
 
@@ -90,4 +91,4 @@ Keep changes on the assigned branch. Merge shared changes normally. Never stash,
 
 ## Next action
 
-Implement task 3 only: read RGB balances and assets.
+Start task 4 by agreeing on custody and a separate recipient wallet. Then complete one small transfer with test assets.

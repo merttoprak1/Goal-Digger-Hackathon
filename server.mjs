@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { assessmentFormat, assessmentMessages, assessAnswer } from './assessment.mjs';
+import { getRgbWallet } from './rgb-wallet.mjs';
 
 export async function getHealth(fetchService = fetch) {
   async function check(url, validate) {
@@ -89,6 +90,22 @@ export const server = createServer({ requestTimeout: 10_000 }, async (request, r
   response.setHeader('Content-Type', 'application/json');
   response.setHeader('Cache-Control', 'no-store');
   const path = request.url?.split('?')[0];
+  if (path === '/rgb/wallet') {
+    if (request.method !== 'GET') {
+      response.setHeader('Allow', 'GET');
+      response.writeHead(405).end(JSON.stringify({ error: 'Use GET for this endpoint.' }));
+      return;
+    }
+    try {
+      const wallet = await getRgbWallet();
+      response.writeHead(200).end(JSON.stringify(wallet));
+    } catch (error) {
+      response.writeHead(error.status || 500).end(JSON.stringify({
+        error: error.status ? error.message : 'The wallet request failed. Try again.',
+      }));
+    }
+    return;
+  }
   if (path === '/qvac/ask' || path === '/qvac/assess') {
     if (request.method !== 'POST') {
       response.setHeader('Allow', 'POST');
