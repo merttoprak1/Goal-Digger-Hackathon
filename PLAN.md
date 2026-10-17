@@ -1,6 +1,6 @@
 # Goal Digger hackathon plan
 
-Status: challenge drafts, SQLite storage, the React form, and a shared API contract are implemented. The starting commit was `0d7882c`.
+Status: restart in small steps on qvac-RGB. The earlier app skeleton was removed. Local QVAC text inference now works.
 
 ## Product rules
 
