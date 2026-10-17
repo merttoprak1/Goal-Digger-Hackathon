@@ -65,7 +65,7 @@ Shared visual language:
 - **Icons:** Material Symbols Outlined (loaded with `display=block`, rendered
   through `app/components/icon.tsx`). The arena keeps its emoji labels.
 - **Header:** one row — logo, centered nav pills (Challenges / Create Challenge /
-  Wallet / Payout / Profile), a Mutinynet status pill, and the placeholder
+  Wallet / Payouts / Profile), a Mutinynet status pill, and the placeholder
   profile avatar linking to `/profile`.
 - **Chats:** the two arbiter transcripts (the arena panel and the create builder)
   are bounded, independently scrollable feeds (`.chat-feed`). They follow new

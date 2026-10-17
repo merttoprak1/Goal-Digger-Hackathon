@@ -38,7 +38,7 @@ const NAV = [
   { to: "/challenges", label: "Challenges" },
   { to: "/challenges/new", label: "Create Challenge" },
   { to: "/wallet", label: "Wallet" },
-  { to: "/payout", label: "Payout" },
+  { to: "/payout", label: "Payouts" },
   { to: "/profile", label: "Profile" },
 ];
 
