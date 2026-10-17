@@ -125,4 +125,4 @@ The event PDFs and resource spreadsheet are in the parent workspace's HackathonO
 
 ## Next small step
 
-Follow [TASKS.md](TASKS.md), one task at a time. POST /qvac/ask is complete. The fixed math assessment is complete. GET /rgb/wallet is complete. The next task is preparing one transfer with test assets. The earlier shared API contract was removed with the app skeleton.
+Follow [TASKS.md](TASKS.md), one task at a time. POST /qvac/ask is complete. The fixed math assessment is complete. GET /rgb/wallet is complete. The sender settled a transfer of 1 test USDT. The next check is Ege's final recipient status and balance. The earlier shared API contract was removed with the app skeleton.

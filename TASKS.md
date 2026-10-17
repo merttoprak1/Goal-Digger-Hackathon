@@ -53,7 +53,9 @@ Suggested commit: `Add read-only RGB wallet endpoint`.
 
 ## 4. Complete one real test transfer
 
-Estimate: 45–90 minutes, depending on funding and confirmation time.
+Status: sender transfer settled at 99 test USDT. Ege's final receipt confirmation remains pending.
+
+See [the transfer record](docs/RGB-TRANSFER.md) for the transaction ID and checks.
 
 First agree with Ege on who controls the demo funds and which wallet receives them. Use test assets only.
 
@@ -91,4 +93,4 @@ Keep changes on the assigned branch. Merge shared changes normally. Never stash,
 
 ## Next action
 
-Start task 4 by agreeing on custody and a separate recipient wallet. Then complete one small transfer with test assets.
+Finish task 4 by confirming Ege's settled transfer and updated asset balance.

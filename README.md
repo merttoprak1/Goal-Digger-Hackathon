@@ -212,5 +212,9 @@ node --test rgb-wallet.test.mjs
 
 Reference: [RGB Lightning Node API specification](https://github.com/RGB-Tools/rgb-lightning-node/blob/master/openapi.yaml).
 
+## Test transfer status
+
+The sender settled a transfer of 1 test USDT to Ege. Final recipient confirmation remains pending. See [the transfer record](docs/RGB-TRANSFER.md).
+
 ## Prior work
 No application code yet. Only the environment setup above existed before the hackathon; all app code is written during the event in dated commits.
