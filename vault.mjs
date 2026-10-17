@@ -82,6 +82,9 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
   const update = db.prepare('UPDATE deposits SET result = ? WHERE id = ?');
   db.exec('CREATE TABLE IF NOT EXISTS deposit_status (id TEXT PRIMARY KEY, result TEXT NOT NULL)');
   const updateStatus = db.prepare('INSERT INTO deposit_status (result, id) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET result = excluded.result');
+  db.exec('CREATE TABLE IF NOT EXISTS payouts (id TEXT PRIMARY KEY, asset_id TEXT NOT NULL, recipient_id TEXT NOT NULL, result TEXT NOT NULL, UNIQUE(asset_id, recipient_id))');
+  const readPayout = db.prepare('SELECT result FROM payouts WHERE id = ?');
+  const insertPayout = db.prepare('INSERT INTO payouts VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING');
   let queue = Promise.resolve();
   const server = createServer({ requestTimeout: 10_000 }, async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
@@ -91,6 +94,14 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
       const supplied = Buffer.from(req.headers.authorization || '');
       const expected = Buffer.from(`Bearer ${token}`);
       if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw error(401, 'A valid vault token is required.');
+      const payoutMatch = /^\/vault\/payouts\/([a-zA-Z0-9_-]{1,80})$/.exec(req.url || '');
+      if (payoutMatch && payoutMatch[1] !== 'validate') {
+        if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); throw error(405, 'Use GET for this endpoint.'); }
+        const old = readPayout.get(payoutMatch[1]);
+        if (!old) throw error(404, 'Payout ID not found.');
+        reply(200, JSON.parse(old.result));
+        return;
+      }
       const statusMatch = /^\/vault\/deposits\/([a-zA-Z0-9_-]{1,80})$/.exec(req.url || '');
       if (statusMatch) {
         if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); throw error(405, 'Use GET for this endpoint.'); }
@@ -110,7 +121,8 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
         return;
       }
       const payoutValidation = req.url === '/vault/payouts/validate';
-      if (req.url !== '/vault/deposits' && !payoutValidation) throw error(404, 'Endpoint not found.');
+      const payoutRequest = req.url === '/vault/payouts';
+      if (req.url !== '/vault/deposits' && !payoutValidation && !payoutRequest) throw error(404, 'Endpoint not found.');
       if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); throw error(405, 'Use POST for this endpoint.'); }
       if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw error(415, 'Send Content-Type: application/json.');
       let raw = '';
@@ -120,6 +132,36 @@ export function createVaultServer({ token, databasePath, issueInvoice: issue = i
       }
       let body;
       try { body = JSON.parse(raw); } catch { throw error(400, 'Send valid JSON.'); }
+      if (payoutRequest) {
+        if (!body || Object.keys(body).sort().join(',') !== 'amountAtomic,challengeId,invoice,participantId,payoutId' ||
+            ['payoutId', 'challengeId', 'participantId'].some(key => typeof body[key] !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(body[key])) ||
+            body.payoutId === 'validate' || typeof body.invoice !== 'string' || !body.invoice.startsWith('rgb:') || body.invoice.length > 3000 ||
+            typeof body.amountAtomic !== 'string' || !/^[1-9][0-9]{0,8}$/.test(body.amountAtomic) || BigInt(body.amountAtomic) > 100_000_000n) {
+          throw error(400, 'Send payoutId, challengeId, participantId, invoice, and amountAtomic as strings. The test limit is 100 USDT.');
+        }
+        const operation = queue.then(async () => {
+          const old = readPayout.get(body.payoutId);
+          if (old) {
+            const saved = JSON.parse(old.result);
+            if (Object.keys(body).some(key => saved[key] !== body[key])) throw error(409, 'The payout ID already has different details.');
+            return [200, saved];
+          }
+          const validated = validatePayoutInvoice(await decode(body.invoice), body.amountAtomic);
+          if (!validated.valid) return [422, validated];
+          const saved = {
+            ...body, assetId: validated.assetId, recipientId: validated.recipientId,
+            expirationTimestamp: validated.expirationTimestamp, status: 'prepared', createdAt: new Date().toISOString()
+          };
+          // Saving a request does not reserve funds or execute a transfer.
+          const inserted = insertPayout.run(body.payoutId, saved.assetId, saved.recipientId, JSON.stringify(saved));
+          if (!inserted.changes) throw error(409, 'The payout ID or RGB recipient already belongs to a saved payout.');
+          return [201, saved];
+        });
+        queue = operation.catch(() => {});
+        const [status, result] = await operation;
+        reply(status, result);
+        return;
+      }
       if (payoutValidation) {
         if (!body || Object.keys(body).sort().join(',') !== 'amountAtomic,invoice' ||
             typeof body.invoice !== 'string' || !body.invoice.startsWith('rgb:') || body.invoice.length > 3000 ||
