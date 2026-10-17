@@ -35,7 +35,6 @@ export const ARBITER: ArbiterProfile = {
   name: "Goaly",
   role: "Chief Arbiter",
   agent: "QVAC Agent",
-  level: "Lv. 9",
   accuracy: "98% Accuracy",
   statusText: "Goaly is supervising the chain...",
   greeting: [
@@ -192,7 +191,6 @@ export function resetChallenges(): void {
 const USER: UserProfile = {
   name: "Mert Toprak",
   handle: "@mert_toprak",
-  level: "LVL 12",
   // Testnet (Mutinynet) address from the design. Never a real wallet.
   walletAddress: "bcrt1q9vx7c4m3n8pz2rw6tyq5sh9jvux83fk",
   node: "Ind-01.mutiny",

@@ -170,7 +170,7 @@ function GoalyHeader() {
           </span>
         </div>
         <p className="text-xs font-medium text-slate-500">
-          Discreet Log Oracle • Level 42 Referee
+          Discreet Log Oracle • Referee
         </p>
       </div>
     </div>

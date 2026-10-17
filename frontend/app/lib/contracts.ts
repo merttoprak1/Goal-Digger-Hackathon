@@ -57,7 +57,6 @@ export interface ArbiterProfile {
   name: string;
   role: string;
   agent: string;
-  level: string;
   accuracy: string;
   statusText: string;
   /** First messages in the conversation feed. */
@@ -172,7 +171,6 @@ export interface WalletBalance {
 export interface UserProfile {
   name: string;
   handle: string;
-  level: string;
   walletAddress: string;
   node: string;
   tabs: {

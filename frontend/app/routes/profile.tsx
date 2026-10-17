@@ -52,14 +52,11 @@ function ProfileHero({ profile }: { profile: UserProfile }) {
     <section className="rounded-3xl border border-slate-200/80 bg-gradient-to-r from-white to-indigo-50/50 p-6 shadow-sm sm:p-8">
       <div className="flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-center">
         <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-          <div className="relative shrink-0">
+          <div className="shrink-0">
             <Avatar
               label={`${profile.name} profile photo`}
               className="h-24 w-24 ring-4 ring-indigo-100"
             />
-            <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-2.5 py-0.5 text-[10px] font-bold tracking-wide whitespace-nowrap text-white uppercase">
-              {profile.level}
-            </span>
           </div>
 
           <div className="min-w-0">
