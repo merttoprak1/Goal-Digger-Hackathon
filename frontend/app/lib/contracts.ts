@@ -22,8 +22,12 @@ export const CHALLENGE_TEMPLATES = [
 ] as const;
 export type ChallengeTemplate = (typeof CHALLENGE_TEMPLATES)[number];
 
-/** Colour family a card uses for pool figures, buttons and hover states. */
-export type ChallengeTone = "indigo" | "violet";
+/**
+ * Colour family a card uses for pool figures, buttons and hover states. Every
+ * card is indigo now that the violet counter-stake accent has been retired; the
+ * union stays so a second family can come back without touching callers.
+ */
+export type ChallengeTone = "indigo";
 
 /**
  * Footer of a challenge card. Either an actionable counter-stake or a passive

@@ -11,6 +11,7 @@ import type {
   ArbiterProfile,
   Challenge,
   ChallengeStatus,
+  ChallengeTone,
   ChallengesSnapshot,
 } from "~/lib/contracts";
 
@@ -45,10 +46,10 @@ const TITLE_HOVER: Record<ChallengeStatus, string> = {
   new: "group-hover:text-indigo-600",
 };
 
-const ACTION_TONE = {
+/** Exhaustive map: adding a tone to `ChallengeTone` fails the build until it has a class. */
+const ACTION_TONE: Record<ChallengeTone, string> = {
   indigo: "bg-indigo-600 hover:bg-indigo-700",
-  violet: "bg-violet-600 hover:bg-violet-700",
-} as const;
+};
 
 const PRESETS = [
   {
