@@ -50,6 +50,41 @@ export function challengeRoutes(store:ReturnType<typeof openSessions>,stakes?:St
    res.json({...result,status:late?'review_required':result.status,confirmedPoolAtomic:projection(challenge).confirmedPoolAtomic,eligibleToOpen:result.status==='credited'&&!late&&Date.now()<Date.parse(challenge.bettingCutoff)});
   }catch{throw new ApiError(503,'The vault status is unavailable. No new stake credit was confirmed.','VAULT_UNAVAILABLE');}
  });
+ const ownedMath=(participantId:string,id:string)=>{
+  const challenge=store.getChallenge(participantId,id);
+  if(!challenge)throw new ApiError(404,'Challenge not found.','NOT_FOUND');
+  if(challenge.template!=='wake_up'||challenge.proofMethod!=='timed_math')throw new ApiError(409,'This challenge does not use timed math proof.','WRONG_PROOF_METHOD');
+  return challenge;
+ };
+ const proofWindow=(challenge:ReturnType<typeof store.getChallenge>)=>{
+  const view=projection(challenge);
+  if(!view.publishedAt||view.reviewRequired)throw new ApiError(409,'The challenge must be published and free from funding review.','PROOF_BLOCKED');
+  if(Date.now()<Date.parse(challenge.startsAt)||Date.now()>=Date.parse(challenge.proofDeadline))throw new ApiError(409,'The proof window is not open.','PROOF_WINDOW_CLOSED');
+ };
+ router.post('/:id/math/problem',(req,res)=>{
+  const challenge=ownedMath(res.locals.participant.id,String(req.params.id));
+  if(!req.body||Array.isArray(req.body)||typeof req.body!=='object'||Object.keys(req.body).length)throw new ApiError(400,'Send an empty JSON object.','INVALID_PROBLEM');
+  proofWindow(challenge);
+  if(store.mathAccepted(challenge.id))throw new ApiError(409,'This challenge already has an accepted proof.','PROOF_ACCEPTED');
+  const problem=store.createMathProblem(challenge.id);
+  res.json({problem:{...problem,expiresAt:challenge.proofDeadline}});
+ });
+ router.post('/:id/math/submit',(req,res)=>{
+  const challenge=ownedMath(res.locals.participant.id,String(req.params.id));
+  const parsed=z.object({problemId:z.string().min(1).max(80),answer:z.string().regex(/^-?\d{1,6}$/)}).strict().safeParse(req.body);
+  if(!parsed.success)throw new ApiError(400,'Send only problemId and an integer answer string.','INVALID_ANSWER');
+  const previous=store.getMathReceipt(challenge.id,parsed.data.problemId);
+  if(previous){
+   if(previous.answer!==parsed.data.answer)throw new ApiError(409,'This problem already has a submitted answer.','PROBLEM_USED');
+   res.json({proof:previous.proof});return;
+  }
+  proofWindow(challenge);
+  res.json({proof:store.submitMath(challenge.id,parsed.data.problemId,parsed.data.answer)});
+ });
+ router.get('/:id/proofs',(req,res)=>{
+  const challenge=ownedMath(res.locals.participant.id,String(req.params.id));
+  res.json({proofs:store.listMathProofs(challenge.id),accepted:store.mathAccepted(challenge.id)});
+ });
  router.post('/:id/publish',(req,res)=>{
   const challenge=store.getChallenge(res.locals.participant.id,String(req.params.id));
   if(!challenge)throw new ApiError(404,'Challenge not found.','NOT_FOUND');

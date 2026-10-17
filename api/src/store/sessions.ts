@@ -1,10 +1,11 @@
+import {mathProofs} from './math-proofs.js';
 import type {ChallengeDraftInput} from '../contracts/challenge.js';
 import {DatabaseSync} from 'node:sqlite';
 import {mkdirSync,chmodSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 export interface Participant {id:string;displayName:string;createdAt:string}
-export function openSessions(databasePath:string,now:()=>number=Date.now){
+export function openSessions(databasePath:string,now:()=>number=()=>Date.now()){
  mkdirSync(dirname(databasePath),{recursive:true,mode:0o700});
  const db=new DatabaseSync(databasePath);chmodSync(databasePath,0o600);
  db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
@@ -16,6 +17,7 @@ export function openSessions(databasePath:string,now:()=>number=Date.now){
  CREATE INDEX IF NOT EXISTS challenges_owner ON challenges(creator_id,created_at,id);`);
  const hash=(token:string)=>createHash('sha256').update(token).digest('hex');
  return {
+  ...mathProofs(db,now),
   create(displayName:string){
    const participant:Participant={id:randomUUID(),displayName,createdAt:new Date(now()).toISOString()};
    const token=randomBytes(32).toString('hex');const expiresAt=now()+7*24*60*60*1000;
