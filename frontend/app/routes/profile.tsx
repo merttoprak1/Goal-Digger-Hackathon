@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 
 import type { Route } from "./+types/profile";
 import { Avatar } from "~/components/avatar";
@@ -9,13 +9,12 @@ import { Icon } from "~/components/icon";
 import { fetchProfileSnapshot } from "~/lib/api";
 import type {
   ProfileArbiter,
-  ProfileStake,
   ProfileStat,
   UserProfile,
   WalletBalance,
 } from "~/lib/contracts";
 import { EASE } from "~/lib/motion";
-import { ACTION_TONE, BADGE_TONE, ICON_TILE, NOTE_TONE } from "~/lib/tones";
+import { ICON_TILE, NOTE_TONE } from "~/lib/tones";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Profile · Goal Digger" }];
@@ -161,138 +160,6 @@ function StatCard({ stat, index }: { stat: ProfileStat; index: number }) {
   );
 }
 
-function StakeCard({ stake, index }: { stake: ProfileStake; index: number }) {
-  return (
-    <motion.article
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.07, ease: EASE }}
-      whileHover={{ y: -2 }}
-      className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md"
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3.5">
-          <span
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${ICON_TILE[stake.iconTone]}`}
-          >
-            <Icon name={stake.icon} className="text-[22px]" />
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base leading-snug font-bold text-slate-900">
-                {stake.title}
-              </h3>
-              <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${BADGE_TONE[stake.badge.tone]}`}
-              >
-                {stake.badge.label}
-              </span>
-            </div>
-            <p className="mt-1 text-xs font-medium text-slate-500">
-              {stake.meta}
-              {stake.urgency ? (
-                <>
-                  {" • "}
-                  <span className="font-bold text-rose-500">
-                    {stake.urgency}
-                  </span>
-                </>
-              ) : null}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 gap-2.5">
-          <div className="rounded-xl bg-slate-50 px-3.5 py-2 text-center">
-            <span className="block text-[10px] font-bold tracking-wide text-slate-400 uppercase">
-              Your Stake
-            </span>
-            <span className="mt-0.5 block font-mono text-sm font-bold text-slate-900">
-              {stake.stakeUsdt}
-              <span className="ml-1 text-[10px] font-semibold text-slate-400">
-                USDT
-              </span>
-            </span>
-          </div>
-          <div className="rounded-xl bg-slate-50 px-3.5 py-2 text-center">
-            <span className="block text-[10px] font-bold tracking-wide text-slate-400 uppercase">
-              Total Pool
-            </span>
-            <span className="mt-0.5 block font-mono text-sm font-bold text-indigo-600">
-              {stake.poolUsdt ?? "—"}
-              <span className="ml-1 text-[10px] font-semibold text-slate-400">
-                USDT
-              </span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {stake.note.boxed ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-          <span className="flex items-center gap-2 text-xs font-medium text-slate-600">
-            <Icon
-              name={stake.note.icon}
-              className="text-[16px] text-slate-400"
-            />
-            {stake.note.text}
-          </span>
-          {stake.note.trailing ? (
-            <span className="text-xs font-bold text-emerald-600">
-              {stake.note.trailing}
-            </span>
-          ) : null}
-        </div>
-      ) : (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <span className="flex items-center gap-2 text-xs font-medium text-slate-600">
-            <Icon
-              name={stake.note.icon}
-              className="text-[16px] text-slate-400"
-            />
-            {stake.note.text}
-          </span>
-          {stake.note.trailing ? (
-            <span className="font-mono text-xs font-bold text-slate-700">
-              {stake.note.trailing}
-            </span>
-          ) : null}
-        </div>
-      )}
-
-      {stake.progress ? (
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-indigo-600 transition-[width] duration-500"
-            style={{ width: `${stake.progress.percent}%` }}
-          />
-        </div>
-      ) : null}
-
-      <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <span className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-          <Icon name="verified_user" className="text-[15px] text-slate-400" />
-          {stake.footer}
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {stake.actions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition ${ACTION_TONE[action.tone]}`}
-            >
-              {action.icon ? (
-                <Icon name={action.icon} className="text-[15px]" />
-              ) : null}
-              {action.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </motion.article>
-  );
-}
-
 function ArbiterCard({ arbiter }: { arbiter: ProfileArbiter }) {
   return (
     <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
@@ -429,14 +296,7 @@ function BalanceCard({ balance }: { balance: WalletBalance }) {
 /* --------------------------------- screen -------------------------------- */
 
 export default function Profile({ loaderData }: Route.ComponentProps) {
-  const { profile, stats, stakes, arbiter, balance } = loaderData;
-  const [tab, setTab] = useState<"active" | "settled" | "created">("active");
-
-  const tabs = [
-    { id: "active" as const, label: "Active Stakes", count: profile.tabs.activeStakes },
-    { id: "settled" as const, label: "Settled / Won", count: profile.tabs.settledWon },
-    { id: "created" as const, label: "Created Pools", count: profile.tabs.createdPools },
-  ];
+  const { profile, stats, arbiter, balance } = loaderData;
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 lg:px-8">
@@ -448,86 +308,11 @@ export default function Profile({ loaderData }: Route.ComponentProps) {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <div className="flex flex-col gap-5 lg:col-span-8">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {tabs.map((item) => {
-              const active = tab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setTab(item.id)}
-                  className={[
-                    "relative flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-sm font-bold whitespace-nowrap transition-colors",
-                    active
-                      ? "text-slate-900"
-                      : "text-slate-500 hover:bg-white/70 hover:text-slate-800",
-                  ].join(" ")}
-                >
-                  {/* One pill, handed between tabs, as in the header nav. */}
-                  {active ? (
-                    <motion.span
-                      layoutId="profile-tab"
-                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                      className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-slate-200/80"
-                    />
-                  ) : null}
-                  <span className="relative z-10">{item.label}</span>
-                  <span
-                    className={[
-                      "relative z-10 grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-bold",
-                      active
-                        ? "bg-indigo-600 text-white"
-                        : "bg-slate-100 text-slate-500",
-                    ].join(" ")}
-                  >
-                    {item.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={tab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2, ease: EASE }}
-            >
-              {tab === "active" ? (
-                <div className="flex flex-col gap-4">
-                  {stakes.map((stake, index) => (
-                    <StakeCard key={stake.id} stake={stake} index={index} />
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-                  <Icon
-                    name={tab === "settled" ? "emoji_events" : "inventory_2"}
-                    className="text-[32px] text-slate-300"
-                  />
-                  <p className="mt-3 text-sm font-bold text-slate-700">
-                    {tab === "settled"
-                      ? `${profile.tabs.settledWon} settled challenges`
-                      : `${profile.tabs.createdPools} created pools`}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    This list is wired to the API response — the history view is
-                    not designed yet.
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        <div className="flex flex-col gap-5 lg:col-span-4">
-          <ArbiterCard arbiter={arbiter} />
-          <BalanceCard balance={balance} />
-        </div>
+      {/* Stakes, wins and created pools are board filters now, so the profile
+          keeps only identity, balance and the arbiter. */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+        <BalanceCard balance={balance} />
+        <ArbiterCard arbiter={arbiter} />
       </div>
     </main>
   );

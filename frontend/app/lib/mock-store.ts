@@ -88,6 +88,7 @@ function seed(): Challenge[] {
       action: { kind: "button", label: "Bet Against" },
       proofDeadline: "2026-10-18T09:00:00+00:00",
       createdAt: "2026-10-16T06:12:00.000Z",
+      viewer: { staked: true, created: false, won: false },
     },
     {
       id: "ds-exam",
@@ -106,6 +107,7 @@ function seed(): Challenge[] {
       },
       proofDeadline: "2026-10-24T09:00:00+00:00",
       createdAt: "2026-10-16T08:45:00.000Z",
+      viewer: { staked: false, created: false, won: false },
     },
     {
       id: "wake-up-0700",
@@ -120,6 +122,7 @@ function seed(): Challenge[] {
       action: { kind: "button", label: "Join Pool" },
       proofDeadline: "2026-10-26T06:30:00+00:00",
       createdAt: "2026-10-16T10:02:00.000Z",
+      viewer: { staked: true, created: true, won: false },
     },
     {
       id: "leetcode-3hard",
@@ -134,6 +137,26 @@ function seed(): Challenge[] {
       action: { kind: "button", label: "Challenge" },
       proofDeadline: "2026-11-02T23:59:00+00:00",
       createdAt: "2026-10-17T07:20:00.000Z",
+      viewer: { staked: true, created: false, won: false },
+    },
+    {
+      id: "read-30min",
+      title: "Read 30 minutes daily",
+      creator: "Nil",
+      status: "settled",
+      template: TEMPLATE_LABELS.custom.label,
+      templateEmoji: TEMPLATE_LABELS.custom.emoji,
+      stakeUsdt: "4",
+      poolUsdt: "8.40",
+      proofSource: "Kindle reading log",
+      action: {
+        kind: "info",
+        label: "🏆 Settled · Won",
+        note: "Paid 8.40 USDT to your wallet",
+      },
+      proofDeadline: "2026-10-12T20:00:00+00:00",
+      createdAt: "2026-10-05T07:30:00.000Z",
+      viewer: { staked: true, created: false, won: true },
     },
   ];
 }
@@ -181,6 +204,7 @@ export function insertChallenge(
     },
     proofDeadline: request.proofDeadline,
     createdAt: now.toISOString(),
+    viewer: { staked: true, created: true, won: false },
   };
   challenges = [challenge, ...challenges];
   return challenge;

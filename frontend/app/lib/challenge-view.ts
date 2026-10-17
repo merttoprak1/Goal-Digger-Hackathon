@@ -7,6 +7,7 @@ export const STATUS_BADGE: Record<ChallengeStatus, string> = {
   draft: "bg-slate-100 text-slate-700 border-slate-200",
   open: "bg-indigo-50 text-indigo-700 border-indigo-200",
   new: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  settled: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
 export const POOL_TONE: Record<ChallengeStatus, string> = {
@@ -14,6 +15,7 @@ export const POOL_TONE: Record<ChallengeStatus, string> = {
   draft: "text-slate-400",
   open: "text-indigo-600",
   new: "text-indigo-600",
+  settled: "text-emerald-600",
 };
 
 /** "Proof: Strava GPS sync" → "Strava GPS sync", for use inside a sentence. */

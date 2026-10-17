@@ -75,9 +75,16 @@ Shared visual language:
 
 ### `/challenges` — the arena
 
-Centered hero, filter row, a 12-column grid with the challenge cards on the left
-(`col-span-7`) and the Goaly arbiter panel on the right (`col-span-5`), then the
-dark call-to-action strip.
+Centered hero, a filter row, a 12-column grid with the challenge cards on the
+left (`col-span-7`) and the Goaly arbiter panel on the right (`col-span-5`), then
+the dark call-to-action strip.
+
+The filter row is **All Challenges / Active Stakes / Settled Won / Created
+Pools**, and each count comes from the same list the grid renders. The three
+personal views read the `viewer` relation the API attaches to a pool
+(`staked` / `created` / `won`); a pool that settled leaves Active Stakes and
+appears under Settled Won. An empty view says so rather than rendering a blank
+grid.
 
 The arbiter panel is interactive: the mascot reacts when clicked, the preset
 chips and the card action buttons pre-fill the proposal form, and proposing a
@@ -101,10 +108,14 @@ A summary card totals the stake, XP and default outcome, then **Save Draft** or
 
 ### `/profile` — user profile
 
-Hero with the placeholder avatar and a copy-address control, three stat cards
-(win rate, total pool, streak), tabs for Active / Settled / Created, the stake
-cards on the left (`lg:col-span-8`), and a right column (`lg:col-span-4`) with
-the Goaly arbiter card and the wallet balance breakdown.
+Hero with the placeholder avatar and a copy-address control, then three stat
+cards (win rate, total pool, streak).
+
+Below them the Mutinynet balance card and the Goaly arbiter card sit side by
+side, and that is the page: the Active Stakes / Settled Won / Created Pools
+groups the profile used to tab through live on `/challenges` as board filters
+now, so the profile keeps identity, balance and arbiter. The profile snapshot
+still carries the stake list — the screen just does not render it.
 
 The hero’s **Deposit / Cashout** button links to `/wallet`.
 
@@ -164,10 +175,10 @@ app/
     tones.ts              Shared accent maps for tiles, badges, notes and actions
   routes/
     home.tsx              Redirects to /challenges (the design has no landing page)
-    challenges.tsx        The challenge board + Goaly arbiter panel
+    challenges.tsx        The challenge board, its filters + Goaly arbiter panel
     challenge.tsx         Challenge detail
     challenge-new.tsx     Create custom challenge (chat-driven builder)
-    profile.tsx           User profile, stakes, arbiter and wallet
+    profile.tsx           User profile, arbiter and wallet balance
     wallet.tsx            Balance, escrow breakdown and activity ledger
     payout.tsx            Claimable settlements, arbiter queue and history
     proofs.tsx            My Proofs (placeholder)
@@ -248,12 +259,12 @@ and React components come from `motion/react` — plus plain CSS for everything
 that does not need JavaScript.
 
 **Motion handles:** route transitions (`root.tsx`), the header nav pill gliding
-between tabs, the stake chips, profile tabs and payout tabs doing the same, the
-deploy stage checklist that runs before the arena route changes, the counts in
-`components/count-up.tsx` (profile stats, wallet balance, payout totals, and the
-summary XP as the stake is edited), the arbiter panel flashing when a card
-prefills it, chat bubbles easing in, the “Goaly is typing” bubble, the arena card
-stagger with its hover lift, the profile and payout tab cross-fades, the spring
+between tabs, the stake chips, the board filters and the payout tabs doing the
+same, the deploy stage checklist that runs before the arena route changes, the
+counts in `components/count-up.tsx` (profile stats, wallet balance, payout
+totals, and the summary XP as the stake is edited), the arbiter panel flashing
+when a card prefills it, chat bubbles easing in, the “Goaly is typing” bubble,
+the arena card stagger with its hover lift, the payout tab cross-fade, the spring
 check badge on the selected visibility card, the deposit / cashout drawer
 unfolding under the balance card, the tick swapping in on the copy controls, and
 the mascot squash on poke.

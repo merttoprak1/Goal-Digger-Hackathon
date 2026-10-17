@@ -10,7 +10,13 @@ import { z } from "zod";
 
 /* ------------------------------- challenges ------------------------------ */
 
-export const CHALLENGE_STATUSES = ["active", "draft", "open", "new"] as const;
+export const CHALLENGE_STATUSES = [
+  "active",
+  "draft",
+  "open",
+  "new",
+  "settled",
+] as const;
 export type ChallengeStatus = (typeof CHALLENGE_STATUSES)[number];
 
 export const CHALLENGE_TEMPLATES = [
@@ -31,6 +37,19 @@ export type ChallengeAction =
   | { kind: "button"; label: string }
   | { kind: "info"; label: string; note: string };
 
+/**
+ * How the signed-in user relates to a pool, which is what the board filters
+ * read. Server-owned, and absent until the API sends it.
+ */
+export interface ChallengeViewer {
+  /** The user has a stake locked in this pool. */
+  staked: boolean;
+  /** The user opened the pool. */
+  created: boolean;
+  /** The arbiter settled it in the user's favour. */
+  won: boolean;
+}
+
 export interface Challenge {
   id: string;
   title: string;
@@ -48,6 +67,7 @@ export interface Challenge {
   action: ChallengeAction;
   proofDeadline: string;
   createdAt: string;
+  viewer?: ChallengeViewer;
 }
 
 /** The Goaly arbiter shown in the right-hand panel. */

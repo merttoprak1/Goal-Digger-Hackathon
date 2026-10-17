@@ -36,6 +36,7 @@ const CARD_HOVER: Record<ChallengeStatus, string> = {
   draft: "hover:border-slate-300",
   open: "hover:border-indigo-400",
   new: "hover:border-indigo-400",
+  settled: "hover:border-emerald-300",
 };
 
 const TITLE_HOVER: Record<ChallengeStatus, string> = {
@@ -43,7 +44,31 @@ const TITLE_HOVER: Record<ChallengeStatus, string> = {
   draft: "group-hover:text-indigo-600",
   open: "group-hover:text-indigo-600",
   new: "group-hover:text-indigo-600",
+  settled: "group-hover:text-emerald-600",
 };
+
+/**
+ * Board filters. "All Challenges" shows everything; the other three read the
+ * viewer relation the API attaches to each pool.
+ */
+type BoardFilter = "all" | "staked" | "won" | "created";
+
+const BOARD_FILTERS: Array<{ id: BoardFilter; label: string }> = [
+  { id: "all", label: "All Challenges" },
+  { id: "staked", label: "Active Stakes" },
+  { id: "won", label: "Settled Won" },
+  { id: "created", label: "Created Pools" },
+];
+
+/** A settled pool is no longer an active stake, so it drops out of that view. */
+function inBoard(challenge: Challenge, filter: BoardFilter): boolean {
+  if (filter === "all") return true;
+  const viewer = challenge.viewer;
+  if (!viewer) return false;
+  if (filter === "staked") return viewer.staked && challenge.status !== "settled";
+  if (filter === "won") return viewer.won;
+  return viewer.created;
+}
 
 const PRESETS = [
   {
@@ -528,7 +553,10 @@ function ArbiterPanel({
 export default function Challenges({ loaderData }: Route.ComponentProps) {
   const { challenges, arbiter } = loaderData as ChallengesSnapshot;
   const [prefill, setPrefill] = useState<PrefillRequest | null>(null);
+  const [board, setBoard] = useState<BoardFilter>("all");
   const nonce = useRef(0);
+
+  const visible = challenges.filter((challenge) => inBoard(challenge, board));
 
   function handleAction(challenge: Challenge) {
     nonce.current += 1;
@@ -554,30 +582,78 @@ export default function Challenges({ loaderData }: Route.ComponentProps) {
 
       <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
         <div className="flex flex-col gap-6 lg:col-span-7">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold">
-              <button
-                type="button"
-                className="rounded-xl border border-indigo-600 bg-indigo-600 px-3.5 py-2 text-white shadow-sm transition hover:bg-indigo-700"
-              >
-                All Goals ({challenges.length})
-              </button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {BOARD_FILTERS.map((item) => {
+                const isActive = board === item.id;
+                const count = challenges.filter((challenge) =>
+                  inBoard(challenge, item.id),
+                ).length;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setBoard(item.id)}
+                    className={[
+                      "relative flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-colors",
+                      isActive
+                        ? "text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700",
+                    ].join(" ")}
+                  >
+                    {isActive ? (
+                      <motion.span
+                        layoutId="board-filter"
+                        transition={{
+                          type: "spring",
+                          stiffness: 480,
+                          damping: 34,
+                        }}
+                        className="absolute inset-0 rounded-xl bg-indigo-600 shadow-sm"
+                      />
+                    ) : null}
+                    <span className="relative z-10">{item.label}</span>
+                    <span
+                      className={[
+                        "relative z-10 font-mono",
+                        isActive ? "text-indigo-100" : "text-slate-400",
+                      ].join(" ")}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <span className="font-mono text-xs font-medium text-slate-400">
               Sorted by: Deadline
             </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {challenges.map((challenge, index) => (
-              <ChallengeCard
-                key={challenge.id}
-                challenge={challenge}
-                index={index}
-                onAction={handleAction}
-              />
-            ))}
-          </div>
+          {visible.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {visible.map((challenge, index) => (
+                <ChallengeCard
+                  key={challenge.id}
+                  challenge={challenge}
+                  index={index}
+                  onAction={handleAction}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+              <span className="material-symbols-outlined text-3xl text-slate-300">
+                filter_alt_off
+              </span>
+              <p className="text-sm font-bold text-slate-700">
+                Nothing in this view
+              </p>
+              <p className="max-w-xs text-xs text-slate-500">
+                Pools you stake, win, or create land here.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 text-white shadow-sm">
             <div className="flex items-center gap-3.5">
