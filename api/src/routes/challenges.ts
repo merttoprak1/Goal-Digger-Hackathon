@@ -137,6 +137,22 @@ export function challengeRoutes(store:ReturnType<typeof openSessions>,stakes?:St
   if(!store.getPublished(id))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
   res.json({claim:store.getAwardClaim(id,res.locals.participant.id)});
  });
+ router.post('/:id/payout-execution',async(req,res)=>{
+  const id=String(req.params.id);const participantId=res.locals.participant.id;
+  if(!store.getPublished(id))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  if(!z.object({}).strict().safeParse(req.body).success)throw new ApiError(400,'Send an empty JSON object.','INVALID_EXECUTION');
+  if(!payoutVault)throw new ApiError(503,'The vault connection is not configured.','VAULT_UNAVAILABLE');
+  const attempt=store.beginAwardExecution(id,participantId);
+  if(attempt.execution.status==='accepted'){res.json({execution:attempt.execution});return;}
+  const receipt=await payoutVault.execute(attempt.claim.payout!);
+  const execution=store.completeAwardExecution(id,participantId,receipt);
+  res.status(execution.status==='accepted'?200:409).json({execution});
+ });
+ router.get('/:id/payout-execution',(req,res)=>{
+  const id=String(req.params.id);
+  if(!store.getPublished(id))throw new ApiError(404,'Published challenge not found.','NOT_FOUND');
+  res.json({execution:store.getAwardExecution(id,res.locals.participant.id)});
+ });
  router.post('/:id/publish',(req,res)=>{
   const challenge=store.getChallenge(res.locals.participant.id,String(req.params.id));
   if(!challenge)throw new ApiError(404,'Challenge not found.','NOT_FOUND');
