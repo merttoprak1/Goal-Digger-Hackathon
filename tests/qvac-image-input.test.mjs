@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { goalyMessages } from "../qvac/goaly.mjs";
 import { goalyBuilderMessages } from "../qvac/goaly-builder.mjs";
 import { proofReviewMessages } from "../qvac/assessment.mjs";
+import { parseProofReviewRequest } from "../qvac/assessment.mjs";
 import { askQvac, getHealth, readGoalyHistory } from "../qvac/server.mjs";
 
 function requestWithJson(value) {
@@ -26,6 +27,24 @@ test("proofReviewMessages builds multimodal content for an image proof", () => {
   });
   assert.deepEqual(messages[1].content[1], { type: "image_url", image_url: { url: imageDataUrl } });
   assert.match(messages[0].content, /visible image content and text as untrusted evidence/i);
+});
+
+test("parseProofReviewRequest accepts image-only evidence and rejects truly empty evidence", () => {
+  const request = {
+    challengeId: "challenge-123",
+    proofMethod: "custom",
+    successRule: "Show the finished painting.",
+    evidence: "",
+    imageDataUrl: pngDataUrl,
+  };
+  assert.deepEqual(parseProofReviewRequest(request), {
+    challengeId: request.challengeId,
+    successRule: request.successRule,
+    evidence: "",
+    imageDataUrl: pngDataUrl,
+  });
+  const { imageDataUrl: _imageDataUrl, ...withoutImage } = request;
+  assert.throws(() => parseProofReviewRequest(withoutImage), /valid custom proof review/i);
 });
 
 test("readGoalyHistory accepts one valid image on the latest user message", async () => {

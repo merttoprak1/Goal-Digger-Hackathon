@@ -63,7 +63,7 @@ export function parseProofReviewRequest(body) {
     body.successRule.trim().length < 3 ||
     body.successRule.length > 1000 ||
     typeof body.evidence !== "string" ||
-    !body.evidence.trim() ||
+    (!body.evidence.trim() && body.imageDataUrl === undefined) ||
     body.evidence.length > 1000
   ) {
     throw new Error("Send a valid custom proof review request.");

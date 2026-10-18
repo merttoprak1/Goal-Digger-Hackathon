@@ -104,6 +104,26 @@ it("sends custom proof with challenge context and validates the Goaly review", a
   expect(sent).toEqual(customInput);
 });
 
+it("forwards custom proof image data URL to Goaly", async () => {
+  const imageDataUrl = "data:image/png;base64,iVBORw0KGgo=";
+  const input = { ...customInput, image: { mimeType: "image/png", dataUrl: imageDataUrl } };
+  let sent: unknown;
+  const reviewer = localProofReviewer({
+    fetchService: async (_url, init) => {
+      sent = JSON.parse(String(init?.body));
+      return Response.json({
+        challengeId: input.challengeId,
+        rule: { id: "challenge-custom-v1", successRule: input.successRule },
+        verdict: "accepted",
+        reason: "The image supports the stated rule.",
+      });
+    },
+  });
+  await expect(reviewer(input)).resolves.toMatchObject({ verdict: "accepted" });
+  const { image: _image, ...expected } = input;
+  expect(sent).toEqual({ ...expected, imageDataUrl });
+});
+
 it("keeps unclear or context-mismatched custom review unapproved", async () => {
   const unclear = localProofReviewer({
     fetchService: async () =>

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { createApp } from "../src/app.js";
 import { openStakeDeposits } from "../../vault/stake-deposits.mjs";
 import { ApiError } from "../src/middlewares/error-handler.js";
+import sharp from "sharp";
 const cleanup: Array<() => void> = [];
 afterEach(() => {
   vi.useRealTimers();
@@ -20,6 +21,7 @@ async function setup(template = "wake_up") {
   let onCustomReview: (() => void) | null = null;
   let customReviewWait: Promise<void> | null = null;
   let customReviewCalls = 0;
+  let lastCustomReviewInput: Record<string, unknown> | null = null;
   const stakes = openStakeDeposits({
     databasePath,
     token: "secret",
@@ -53,6 +55,7 @@ async function setup(template = "wake_up") {
       if (reviewerError) throw reviewerError;
       if ("proofMethod" in input) {
         customReviewCalls++;
+        lastCustomReviewInput = structuredClone(input);
         onCustomReview?.();
         if (customReviewWait) await customReviewWait;
       }
@@ -146,8 +149,142 @@ async function setup(template = "wake_up") {
       customReviewWait = wait;
     },
     customReviewCalls: () => customReviewCalls,
+    lastCustomReviewInput: () => lastCustomReviewInput,
   };
 }
+
+const tinyPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==", "base64");
+function postImage(f: Awaited<ReturnType<typeof setup>>, statement?: string, bytes = tinyPng, contentType = "image/png") {
+  const req = request(f.app)
+    .post(f.base + "/proof-note")
+    .set("Authorization", `Bearer ${f.a.token}`);
+  if (statement !== undefined) req.field("statement", statement);
+  return req.attach("image", bytes, { filename: "proof.png", contentType });
+}
+
+it("accepts image-only custom proof", async () => {
+  const f = await setup("custom");
+  f.time(f.starts);
+  const response = await postImage(f);
+  expect(response.status).toBe(200);
+  expect(response.body.review.verdict).toBe("accepted");
+  expect(f.lastCustomReviewInput()).toMatchObject({ evidence: "" });
+  expect(f.lastCustomReviewInput()).toHaveProperty("image.mimeType", "image/png");
+  expect(f.lastCustomReviewInput()).toHaveProperty("image.dataUrl", `data:image/png;base64,${tinyPng.toString("base64")}`);
+});
+
+it("accepts text plus image proof", async () => {
+  const f = await setup("custom");
+  f.time(f.starts);
+  const response = await postImage(f, "I completed the goal.");
+  expect(response.status).toBe(200);
+  expect(f.lastCustomReviewInput()).toMatchObject({ evidence: "I completed the goal.", image: { mimeType: "image/png" } });
+});
+
+it("rejects empty custom proof evidence", async () => {
+  const f = await setup("custom");
+  const response = await f.post("/proof-note", {});
+  expect(response.status).toBe(400);
+  expect(response.body.error.code).toBe("INVALID_PROOF");
+  expect(f.customReviewCalls()).toBe(0);
+});
+
+it("rejects custom proof submitted before challenge start", async () => {
+  const f = await setup("custom");
+  f.time(f.starts - 1000);
+  const response = await f.post("/proof-note", { statement: "I completed the goal." });
+  expect(response.status).toBe(409);
+  expect(response.body.error.code).toBe("PROOF_WINDOW_NOT_OPEN");
+  expect(f.customReviewCalls()).toBe(0);
+});
+
+it("rejects mismatched MIME signatures and oversized images before reviewer call", async () => {
+  const f = await setup("custom");
+  f.time(f.starts);
+  const mismatch = await postImage(f, "A proof", tinyPng, "image/jpeg");
+  expect(mismatch.status).toBe(400);
+  const corrupt = await postImage(f, "A proof", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), "image/png");
+  expect(corrupt.status).toBe(400);
+  const oversized = await postImage(f, "A proof", Buffer.alloc(5 * 1024 * 1024 + 1), "image/png");
+  expect(oversized.status).toBe(413);
+  expect(f.customReviewCalls()).toBe(0);
+});
+
+it("requires the same image hash for a pending retry", async () => {
+  const f = await setup("custom");
+  f.time(f.starts);
+  f.setReviewerError(new ApiError(503, "QVAC unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
+  const first = await postImage(f, "Same proof");
+  expect(first.status).toBe(503);
+  f.setReviewerError(null);
+  const changedImage = await sharp(tinyPng).png({ compressionLevel: 1 }).toBuffer();
+  expect(changedImage).not.toEqual(tinyPng);
+  const changed = await postImage(f, "Same proof", changedImage);
+  expect(changed.status).toBe(409);
+  expect(changed.body.error.code).toBe("PROOF_REVIEW_PENDING");
+  const retry = await postImage(f, "Same proof");
+  expect(retry.status).toBe(200);
+});
+
+it("persists proof image bytes across API restart", async () => {
+  const f = await setup("custom");
+  f.time(f.starts);
+  f.setReviewerError(new ApiError(503, "QVAC unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
+  await postImage(f, "Persist this image");
+  const saved = f.app.locals.sessionStore.getProofReview(f.challengeId);
+  expect(saved).toMatchObject({ imageMimeType: "image/png", imageHash: expect.any(String) });
+  expect(saved.imageBytes).toEqual(tinyPng);
+
+  const second = createApp({
+    databasePath: f.databasePath,
+    proofReviewer: async () => ({ verdict: "accepted", reason: "Image supports the rule.", reviewer: "local-qvac" }),
+  });
+  cleanup.push(() => second.locals.close());
+  const retry = await request(second).post(f.base + "/proof-note")
+    .set("Authorization", `Bearer ${f.a.token}`)
+    .field("statement", "Persist this image")
+    .attach("image", tinyPng, { filename: "proof.png", contentType: "image/png" });
+  expect(retry.status).toBe(200);
+});
+
+it("allows early success finalization after accepted proof", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  f.time(f.starts);
+  expect((await f.post("/proof-note", { statement: "I completed the goal." })).status).toBe(200);
+  const response = await f.post("/finalize");
+  expect(response.status).toBe(200);
+  expect(response.body.outcome.status).toBe("success");
+});
+
+it("blocks early finalization without accepted proof", async () => {
+  const f = await setup("custom");
+  f.time(f.starts);
+  const response = await f.post("/finalize");
+  expect(response.status).toBe(409);
+  expect(response.body.error.code).toBe("PROOF_WINDOW_OPEN");
+});
+
+it("blocks early failure finalization after rejected proof", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  f.setCustomVerdict("rejected");
+  f.time(f.starts);
+  await f.post("/proof-note", { statement: "I completed the goal." });
+  expect((await f.post("/finalize")).body.error.code).toBe("PROOF_WINDOW_OPEN");
+  f.time(f.deadline);
+  expect((await f.post("/finalize")).body.outcome.status).toBe("failure");
+});
+
+it("blocks early success finalization until all stakes are resolved", async () => {
+  const f = await setup("custom");
+  f.set(false);
+  await f.opponent();
+  f.time(f.starts);
+  await f.post("/proof-note", { statement: "I completed the goal." });
+  expect((await f.post("/finalize")).status).toBe(409);
+  expect((await f.get("/outcome")).body.outcome).toBeNull();
+});
 it("saves success after the deadline from an accepted proof, with an immutable exact pool snapshot", async () => {
   const f = await setup();
   await f.opponent();
@@ -249,6 +386,7 @@ it("does not decide official results with timed math rules", async () => {
 it("reviews custom evidence and only accepted proof can produce success", async () => {
   const f = await setup("custom");
   await f.opponent();
+  f.time(f.starts);
   const response = await f.post("/proof-note", { statement: "I completed the stated goal." });
   expect(response.status).toBe(200);
   expect(response.body).toEqual({
@@ -267,6 +405,7 @@ it("reviews custom evidence and only accepted proof can produce success", async 
 it("stores a rejected custom review but finalizes as failure", async () => {
   const f = await setup("custom");
   await f.opponent();
+  f.time(f.starts);
   f.setCustomVerdict("rejected");
   const response = await f.post("/proof-note", { statement: "This does not prove completion." });
   expect(response.body.review.verdict).toBe("rejected");
@@ -277,6 +416,7 @@ it("stores a rejected custom review but finalizes as failure", async () => {
 it("does not persist unclear custom evidence and allows a clearer retry", async () => {
   const f = await setup("custom");
   await f.opponent();
+  f.time(f.starts);
   f.setCustomVerdict("unclear");
   const unclear = await f.post("/proof-note", { statement: "Maybe I did it." });
   expect(unclear.status).toBe(422);
@@ -290,6 +430,7 @@ it("does not persist unclear custom evidence and allows a clearer retry", async 
 it("retains a pending custom proof review when Goaly is unavailable", async () => {
   const f = await setup("custom");
   await f.opponent();
+  f.time(f.starts);
   f.setReviewerError(new ApiError(503, "QVAC is unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
   const failed = await f.post("/proof-note", { statement: "I completed the stated goal." });
   expect(failed.status).toBe(503);
@@ -305,6 +446,7 @@ it("retains a pending custom proof review when Goaly is unavailable", async () =
 it("blocks failure finalization while a timely proof review is unresolved", async () => {
   const f = await setup("custom");
   await f.opponent();
+  f.time(f.starts);
   f.setReviewerError(new ApiError(503, "QVAC is unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
   await f.post("/proof-note", { statement: "I completed the stated goal." });
   f.time(f.deadline);
@@ -317,6 +459,7 @@ it("blocks failure finalization while a timely proof review is unresolved", asyn
 it("retries the exact timely pending proof after restart and deadline", async () => {
   const f = await setup("custom");
   await f.opponent();
+  f.time(f.starts);
   f.setReviewerError(new ApiError(503, "QVAC is unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
   await f.post("/proof-note", { statement: "I completed the stated goal." });
   f.time(f.deadline);
@@ -340,6 +483,7 @@ it("retries the exact timely pending proof after restart and deadline", async ()
 
 it("rejects changed evidence while a previous timely review is pending", async () => {
   const f = await setup("custom");
+  f.time(f.starts);
   f.setReviewerError(new ApiError(503, "QVAC is unavailable.", "PROOF_REVIEW_UNAVAILABLE"));
   await f.post("/proof-note", { statement: "I completed the stated goal." });
   f.setReviewerError(null);
@@ -350,6 +494,7 @@ it("rejects changed evidence while a previous timely review is pending", async (
 
 it("runs only one Goaly review at a time for a pending challenge proof", async () => {
   const f = await setup("custom");
+  f.time(f.starts);
   let release!: () => void;
   let markStarted!: () => void;
   const wait = new Promise<void>((resolve) => { release = resolve; });
@@ -376,6 +521,7 @@ it("runs only one Goaly review at a time for a pending challenge proof", async (
 it("does not overwrite an accepted proof with later evidence", async () => {
   const f = await setup("custom");
   await f.opponent();
+  f.time(f.starts);
   expect((await f.post("/proof-note", { statement: "I completed the goal." })).status).toBe(200);
   const replacement = await f.post("/proof-note", { statement: "A different statement." });
   expect(replacement.status).toBe(409);
@@ -387,6 +533,7 @@ it("does not overwrite an accepted proof with later evidence", async () => {
 it("does not let a slow retry overwrite accepted proof after the deadline", async () => {
   const f = await setup("custom");
   await f.opponent();
+  f.time(f.starts);
   expect((await f.post("/proof-note", { statement: "I completed the goal." })).status).toBe(200);
   f.time(f.deadline - 1);
   f.setOnCustomReview(() => f.time(f.deadline));
@@ -401,6 +548,7 @@ it("does not let a slow retry overwrite accepted proof after the deadline", asyn
 
 it("accepts a full-length Unicode written proof within the API request limit", async () => {
   const f = await setup("custom");
+  f.time(f.starts);
   const statement = "証".repeat(1000);
   const response = await f.post("/proof-note", { statement });
   expect(response.status).toBe(200);

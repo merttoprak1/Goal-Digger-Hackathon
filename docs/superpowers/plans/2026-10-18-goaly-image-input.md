@@ -84,13 +84,13 @@
 - `saveProofNote` and `clearPendingProofReview` match the same statement, timestamp, and image hash.
 - `finalizeOutcome` permits early success only when an accepted proof falls within the challenge window. It never permits early failure.
 
-- [ ] **Step 1: Add failing tests** named `accepts image-only custom proof`, `accepts text plus image proof`, `rejects empty evidence`, `rejects custom proof submitted before challenge start`, `rejects mismatched MIME signatures and oversized images before reviewer call`, `requires the same image hash for a pending retry`, `persists proof image bytes across API restart`, `allows early success finalization after accepted proof`, `blocks early finalization without accepted proof`, `blocks early failure finalization`, and `blocks early success finalization until all stakes are resolved`. Add `localProofReviewer forwards proof image data URL` and assert exact MIME and data URL values.
-- [ ] **Step 2: Run focused API tests** and confirm failures show missing multipart and image persistence behavior.
-- [ ] **Step 3: Add bounded Busboy parsing** with an in-memory upload buffer. Enforce one image, a 5 MiB file limit, and JPEG/PNG/WebP byte signatures. Decode with `sharp` using a 40-megapixel limit, and reject images that fail decoding.
-- [ ] **Step 4: Extend the existing SQLite proof record** with migration-safe MIME, BLOB, and hash columns. Include the image fields in the existing pending-proof and retry checks.
-- [ ] **Step 5: Send statement and optional image data to the local proof reviewer**, allow up to 60 seconds for image review, and preserve existing verdict and deadline behavior.
-- [ ] **Step 6: Run `npm test --prefix api` and `npm run typecheck --prefix api`** and confirm all tests pass.
-- [ ] **Step 7: Commit** the API upload, storage, and reviewer changes.
+- [x] **Step 1: Add failing tests** named `accepts image-only custom proof`, `accepts text plus image proof`, `rejects empty evidence`, `rejects custom proof submitted before challenge start`, `rejects mismatched MIME signatures and oversized images before reviewer call`, `requires the same image hash for a pending retry`, `persists proof image bytes across API restart`, `allows early success finalization after accepted proof`, `blocks early finalization without accepted proof`, `blocks early failure finalization`, and `blocks early success finalization until all stakes are resolved`. Add `localProofReviewer forwards proof image data URL` and assert exact MIME and data URL values.
+- [x] **Step 2: Run focused API tests** and confirm failures show missing multipart and image persistence behavior.
+- [x] **Step 3: Add bounded Busboy parsing** with an in-memory upload buffer. Enforce one image, a 5 MiB file limit, and JPEG/PNG/WebP byte signatures. Decode with `sharp` using a 40-megapixel limit, and reject images that fail decoding.
+- [x] **Step 4: Extend the existing SQLite proof record** with migration-safe MIME, BLOB, and hash columns. Include the image fields in the existing pending-proof and retry checks.
+- [x] **Step 5: Send statement and optional image data to the local proof reviewer**, allow up to 60 seconds for image review, and preserve existing verdict and deadline behavior.
+- [x] **Step 6: Run `npm test --prefix api` and `npm run typecheck --prefix api`** and confirm all tests pass.
+- [x] **Step 7: Commit** the API upload, storage, and reviewer changes.
 
 ### Task 3: Add image controls to Goaly and the proof form
 

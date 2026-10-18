@@ -14,14 +14,15 @@ function provedMath(db: DatabaseSync, id: string, startsAt: string, proofDeadlin
   return proof ? String(proof.id) : null;
 }
 
-function provedCustom(db: DatabaseSync, id: string, proofDeadline: string) {
+function provedCustom(db: DatabaseSync, id: string, startsAt: string, proofDeadline: string) {
   const row = db
     .prepare(
       "SELECT submitted_at FROM custom_proofs WHERE challenge_id=? AND review_verdict='accepted'",
     )
     .get(id);
   if (!row) return null;
-  return Date.parse(String(row.submitted_at)) < Date.parse(proofDeadline) ? id : null;
+  const submittedAt = Date.parse(String(row.submitted_at));
+  return submittedAt >= Date.parse(startsAt) && submittedAt < Date.parse(proofDeadline) ? id : null;
 }
 import { ApiError } from "../middlewares/error-handler.js";
 import { bettingBook } from "./betting.js";
@@ -32,7 +33,7 @@ export function outcomes(db: DatabaseSync, now: () => number) {
     "CREATE TABLE IF NOT EXISTS challenge_outcomes(challenge_id TEXT PRIMARY KEY REFERENCES challenges(id),result TEXT NOT NULL)",
   );
   db.exec(
-    "CREATE TABLE IF NOT EXISTS custom_proofs(challenge_id TEXT PRIMARY KEY REFERENCES challenges(id),statement TEXT NOT NULL,submitted_at TEXT NOT NULL,review_verdict TEXT NOT NULL DEFAULT 'unclear',review_reason TEXT NOT NULL DEFAULT '',reviewer TEXT NOT NULL DEFAULT '')",
+    "CREATE TABLE IF NOT EXISTS custom_proofs(challenge_id TEXT PRIMARY KEY REFERENCES challenges(id),statement TEXT NOT NULL,submitted_at TEXT NOT NULL,review_verdict TEXT NOT NULL DEFAULT 'unclear',review_reason TEXT NOT NULL DEFAULT '',reviewer TEXT NOT NULL DEFAULT '',image_hash TEXT NOT NULL DEFAULT '',image_mime_type TEXT NOT NULL DEFAULT '',image_bytes BLOB)",
   );
   const proofColumns = new Set(
     db.prepare("PRAGMA table_info(custom_proofs)").all().map((row) => String(row.name)),
@@ -43,6 +44,11 @@ export function outcomes(db: DatabaseSync, now: () => number) {
     db.exec("ALTER TABLE custom_proofs ADD COLUMN review_reason TEXT NOT NULL DEFAULT ''");
   if (!proofColumns.has("reviewer"))
     db.exec("ALTER TABLE custom_proofs ADD COLUMN reviewer TEXT NOT NULL DEFAULT ''");
+  if (!proofColumns.has("image_hash"))
+    db.exec("ALTER TABLE custom_proofs ADD COLUMN image_hash TEXT NOT NULL DEFAULT ''");
+  if (!proofColumns.has("image_mime_type"))
+    db.exec("ALTER TABLE custom_proofs ADD COLUMN image_mime_type TEXT NOT NULL DEFAULT ''");
+  if (!proofColumns.has("image_bytes")) db.exec("ALTER TABLE custom_proofs ADD COLUMN image_bytes BLOB");
   const book = bettingBook(db, now);
   const getOutcome = (id: string) => {
     const row = db
@@ -53,7 +59,7 @@ export function outcomes(db: DatabaseSync, now: () => number) {
   const getProofReview = (id: string) => {
     const row = db
       .prepare(
-        "SELECT statement,submitted_at,review_verdict,review_reason,reviewer FROM custom_proofs WHERE challenge_id=?",
+        "SELECT statement,submitted_at,review_verdict,review_reason,reviewer,image_hash,image_mime_type,image_bytes FROM custom_proofs WHERE challenge_id=?",
       )
       .get(id);
     return row
@@ -63,16 +69,19 @@ export function outcomes(db: DatabaseSync, now: () => number) {
           reviewVerdict: String(row.review_verdict),
           reason: String(row.review_reason),
           reviewer: String(row.reviewer),
+          imageHash: String(row.image_hash),
+          imageMimeType: String(row.image_mime_type),
+          imageBytes: row.image_bytes == null ? null : Buffer.from(row.image_bytes as Uint8Array),
         }
       : null;
   };
   return {
     getOutcome,
     getProofReview,
-    beginProofReview(id: string, statement: string) {
+    beginProofReview(id: string, statement: string, imageHash = "", imageBytes: Buffer | null = null, imageMimeType = "") {
       const previous = getProofReview(id);
       if (previous?.reviewVerdict === "accepted") {
-        if (previous.statement !== statement) {
+        if (previous.statement !== statement || previous.imageHash !== imageHash) {
           throw new ApiError(
             409,
             "An accepted proof is already saved for this challenge.",
@@ -90,7 +99,7 @@ export function outcomes(db: DatabaseSync, now: () => number) {
         };
       }
       if (previous?.reviewVerdict === "pending") {
-        if (previous.statement !== statement) {
+        if (previous.statement !== statement || previous.imageHash !== imageHash) {
           throw new ApiError(
             409,
             "The previous proof is still awaiting Goaly review. Retry the same evidence first.",
@@ -102,24 +111,25 @@ export function outcomes(db: DatabaseSync, now: () => number) {
 
       const submittedAt = new Date(now()).toISOString();
       db.prepare(
-        "INSERT INTO custom_proofs(challenge_id,statement,submitted_at,review_verdict,review_reason,reviewer) VALUES(?,?,?,'pending','','') ON CONFLICT(challenge_id) DO UPDATE SET statement=excluded.statement,submitted_at=excluded.submitted_at,review_verdict='pending',review_reason='',reviewer=''",
-      ).run(id, statement, submittedAt);
+        "INSERT INTO custom_proofs(challenge_id,statement,submitted_at,review_verdict,review_reason,reviewer,image_hash,image_mime_type,image_bytes) VALUES(?,?,?,'pending','','',?,?,?) ON CONFLICT(challenge_id) DO UPDATE SET statement=excluded.statement,submitted_at=excluded.submitted_at,review_verdict='pending',review_reason='',reviewer='',image_hash=excluded.image_hash,image_mime_type=excluded.image_mime_type,image_bytes=excluded.image_bytes",
+      ).run(id, statement, submittedAt, imageHash, imageMimeType, imageBytes);
       return { status: "pending" as const, submittedAt };
     },
     saveProofNote(
       id: string,
       statement: string,
       submittedAt: string,
+      imageHash: string,
       review: { verdict: "accepted" | "rejected"; reason: string; reviewer: "local-qvac" },
     ) {
       const result = db
         .prepare(
-          "UPDATE custom_proofs SET review_verdict=?,review_reason=?,reviewer=? WHERE challenge_id=? AND statement=? AND submitted_at=? AND review_verdict='pending'",
+          "UPDATE custom_proofs SET review_verdict=?,review_reason=?,reviewer=? WHERE challenge_id=? AND statement=? AND submitted_at=? AND image_hash=? AND review_verdict='pending'",
         )
-        .run(review.verdict, review.reason, review.reviewer, id, statement, submittedAt);
+        .run(review.verdict, review.reason, review.reviewer, id, statement, submittedAt, imageHash);
       const current = getProofReview(id);
       if (result.changes === 0) {
-        if (current?.reviewVerdict === "accepted" && current.statement === statement) {
+        if (current?.reviewVerdict === "accepted" && current.statement === statement && current.imageHash === imageHash) {
           return {
             review: {
               verdict: "accepted" as const,
@@ -137,10 +147,10 @@ export function outcomes(db: DatabaseSync, now: () => number) {
       }
       return { review, submittedAt };
     },
-    clearPendingProofReview(id: string, statement: string, submittedAt: string) {
+    clearPendingProofReview(id: string, statement: string, submittedAt: string, imageHash: string) {
       db.prepare(
-        "DELETE FROM custom_proofs WHERE challenge_id=? AND statement=? AND submitted_at=? AND review_verdict='pending'",
-      ).run(id, statement, submittedAt);
+        "DELETE FROM custom_proofs WHERE challenge_id=? AND statement=? AND submitted_at=? AND image_hash=? AND review_verdict='pending'",
+      ).run(id, statement, submittedAt, imageHash);
     },
     getBettingSnapshot: book.getBettingSnapshot,
     closeBetting: book.closeBetting,
@@ -169,7 +179,10 @@ export function outcomes(db: DatabaseSync, now: () => number) {
             "WRONG_PROOF_METHOD",
           );
         const finalizedAt = now();
-        if (finalizedAt < Date.parse(challenge.proofDeadline))
+        const proved = custom
+          ? provedCustom(db, id, challenge.startsAt, challenge.proofDeadline)
+          : provedMath(db, id, challenge.startsAt, challenge.proofDeadline);
+        if (finalizedAt < Date.parse(challenge.proofDeadline) && (!custom || !proved))
           throw new ApiError(
             409,
             "The proof deadline has not passed.",
@@ -191,9 +204,6 @@ export function outcomes(db: DatabaseSync, now: () => number) {
         }
         const snapshot = book.sealInsideTransaction(id);
         const stakes = snapshot.stakes;
-        const proved = custom
-          ? provedCustom(db, id, challenge.proofDeadline)
-          : provedMath(db, id, challenge.startsAt, challenge.proofDeadline);
         const outcome = {
           challengeId: id,
           status: proved ? "success" : "failure",

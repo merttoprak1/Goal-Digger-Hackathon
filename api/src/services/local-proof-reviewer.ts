@@ -12,6 +12,7 @@ export interface CustomProofReviewInput {
   proofMethod: "custom";
   successRule: string;
   evidence: string;
+  image?: { mimeType: "image/jpeg" | "image/png" | "image/webp"; dataUrl: string };
 }
 
 export type ProofReviewInput = MathProofReviewInput | CustomProofReviewInput;
@@ -46,13 +47,16 @@ export function localProofReviewer({
 } = {}) {
   return async (input: ProofReviewInput): Promise<ProofReview> => {
     const custom = "proofMethod" in input;
+    const outgoingPayload = "proofMethod" in input && input.image
+      ? { ...input, imageDataUrl: input.image.dataUrl, image: undefined }
+      : input;
     let response: Response;
     try {
       response = await fetchService(custom ? reviewUrl : url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(input),
-        signal: AbortSignal.timeout(35_000),
+        body: JSON.stringify(outgoingPayload),
+        signal: AbortSignal.timeout(custom && input.image ? 60_000 : 35_000),
       });
     } catch (cause) {
       const timeout = cause instanceof Error && cause.name === "TimeoutError";

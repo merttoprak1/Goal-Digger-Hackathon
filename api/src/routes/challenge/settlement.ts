@@ -1,6 +1,7 @@
 import type { Router } from "express";
 import { z } from "zod";
 import { ApiError } from "../../middlewares/error-handler.js";
+import { parseProofMultipart, type ProofImage } from "../../services/proof-image.js";
 import {
   participantId,
   requireConfiguredVault,
@@ -24,19 +25,34 @@ export function registerSettlementRoutes(router: Router, context: ChallengeConte
     if (challenge.template !== "custom" || challenge.proofMethod !== "custom") {
       throw new ApiError(409, "This challenge does not use a written proof.", "WRONG_PROOF_METHOD");
     }
-    const parsed = z
-      .object({ statement: z.string().trim().min(3).max(1000) })
-      .strict()
-      .safeParse(req.body);
-    if (!parsed.success) {
+    let statement: string;
+    let image: ProofImage | undefined;
+    if (req.is("multipart/form-data")) {
+      const parsed = await parseProofMultipart(req);
+      statement = parsed.statement;
+      image = parsed.image;
+    } else {
+      const parsed = z
+        .object({ statement: z.string().trim().min(3).max(1000) })
+        .strict()
+        .safeParse(req.body);
+      if (!parsed.success) {
+        throw new ApiError(400, "Send a proof statement of 3 to 1000 characters or attach an image.", "INVALID_PROOF");
+      }
+      statement = parsed.data.statement;
+    }
+    if ((!statement || statement.length < 3 || statement.length > 1000) && !image) {
       throw new ApiError(400, "Send a proof statement of 3 to 1000 characters.", "INVALID_PROOF");
     }
-    const statement = parsed.data.statement;
+    if (Date.now() < Date.parse(challenge.startsAt)) {
+      throw new ApiError(409, "The proof window has not started.", "PROOF_WINDOW_NOT_OPEN");
+    }
+    const imageHash = image?.hash ?? "";
     const existingReview = store.getProofReview(id);
     const retriesPendingEvidence =
-      existingReview?.reviewVerdict === "pending" && existingReview.statement === statement;
+      existingReview?.reviewVerdict === "pending" && existingReview.statement === statement && existingReview.imageHash === imageHash;
     const repeatsAcceptedEvidence =
-      existingReview?.reviewVerdict === "accepted" && existingReview.statement === statement;
+      existingReview?.reviewVerdict === "accepted" && existingReview.statement === statement && existingReview.imageHash === imageHash;
     if (
       Date.now() >= Date.parse(challenge.proofDeadline) &&
       !retriesPendingEvidence &&
@@ -44,7 +60,7 @@ export function registerSettlementRoutes(router: Router, context: ChallengeConte
     ) {
       throw new ApiError(409, "The proof deadline has passed.", "PROOF_WINDOW_CLOSED");
     }
-    const attempt = store.beginProofReview(id, statement);
+    const attempt = store.beginProofReview(id, statement, imageHash, image?.bytes ?? null, image?.mimeType ?? "");
     if (attempt.status === "accepted") {
       res.json({ saved: true, review: attempt.review });
       return;
@@ -63,9 +79,10 @@ export function registerSettlementRoutes(router: Router, context: ChallengeConte
         proofMethod: "custom",
         successRule: challenge.successRule,
         evidence: statement,
+        ...(image ? { image: { mimeType: image.mimeType, dataUrl: image.dataUrl } } : {}),
       });
       if (review.verdict === "unclear") {
-        store.clearPendingProofReview(id, statement, attempt.submittedAt);
+        store.clearPendingProofReview(id, statement, attempt.submittedAt, imageHash);
         throw new ApiError(
           422,
           "Goaly could not assess this evidence clearly. Submit clearer proof while the proof window is open.",
@@ -76,7 +93,7 @@ export function registerSettlementRoutes(router: Router, context: ChallengeConte
         ...review,
         verdict: review.verdict === "accepted" ? "accepted" as const : "rejected" as const,
       };
-      const saved = store.saveProofNote(id, statement, attempt.submittedAt, recordedReview);
+      const saved = store.saveProofNote(id, statement, attempt.submittedAt, imageHash, recordedReview);
       res.json({ saved: true, review: saved.review });
     } finally {
       activeProofReviews.delete(id);
