@@ -8,7 +8,7 @@ Let a participant submit one photo, written proof, or both, then let the local G
 
 - The custom proof form accepts a written statement, one image, or both. It requires at least one of these inputs.
 - A small image-upload icon appears beside the custom proof input and beside Goaly's chat input.
-- The proof and chat image pickers accept JPEG, PNG, and WebP images up to 5 MiB. Each UI shows a local preview and lets the user remove or replace the image before submit.
+- The proof and chat image pickers accept JPEG, PNG, and WebP images up to 5 MiB and 40 megapixels. Each UI shows a local preview and lets the user remove or replace the image before submit.
 - A chat image gives Goaly conversational context only. It does not submit proof, change a challenge, or create a review record.
 - The API rejects empty evidence, unsupported media types, corrupt images, and images larger than 5 MiB with clear client errors.
 - On submit, Goaly reviews the statement and image together with the challenge-specific success rule. Image-only proof is valid input. The UI shows the existing accepted, rejected, or unclear result behavior.
@@ -30,6 +30,7 @@ Let a participant submit one photo, written proof, or both, then let the local G
 - One image per custom proof submission.
 - One image per Goaly chat message.
 - Maximum image size: 5 MiB before encoding.
+- Maximum decoded image size: 40 megapixels.
 - Supported formats: JPEG, PNG, and WebP. Reject SVG, animated formats, and files whose bytes do not match the declared supported image type.
 - Store image bytes in SQLite with the proof record. Keep proof metadata and existing verdict fields. Do not store public URLs or model chain-of-thought.
 - Preserve the existing one-proof-per-challenge and retry semantics. A pending review retry must use the same statement and image bytes. A user may replace evidence only where existing retry rules allow it.
@@ -55,7 +56,7 @@ Let a participant submit one photo, written proof, or both, then let the local G
 1. The custom proof form can submit text only, image only, or text plus an image.
 2. Both proof and chat UIs show a small upload icon, preview the selected image, and support remove or replace.
 3. A chat image reaches Goaly as temporary context and never counts as a formal proof submission.
-4. The API accepts valid JPEG, PNG, and WebP images up to 5 MiB, and rejects empty evidence, corrupt images, unsupported images, and oversized images before calling Goaly.
+4. The API accepts valid JPEG, PNG, and WebP images up to 5 MiB and 40 megapixels, and rejects empty evidence, corrupt images, unsupported images, and oversized images before review.
 5. Valid proof image bytes persist with the proof record across API restart and remain private.
 6. The local reviewer receives both written and visual evidence with the exact challenge success rule.
 7. The reviewer returns only the existing structured verdicts. Invalid or unavailable image review fails closed.
