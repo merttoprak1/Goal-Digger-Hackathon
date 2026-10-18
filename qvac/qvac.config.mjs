@@ -12,6 +12,7 @@ const downloadedModel =
     if (!file) throw new Error("Set QVAC_MODEL_PATH to the downloaded Qwen GGUF file.");
     return join(modelDirectory, file);
   })();
+const projectionModelSrc = process.env.QVAC_PROJECTION_MODEL_PATH;
 
 export default {
   serve: {
@@ -20,6 +21,7 @@ export default {
         src: downloadedModel,
         type: "llm",
         preload: true,
+        ...(projectionModelSrc ? { projectionModelSrc } : {}),
         config: { ctx_size: 1024 },
       },
     },

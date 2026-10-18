@@ -53,6 +53,8 @@ The check asks the model to calculate 2 + 2. It succeeds only when the answer is
 
 For another model location, set `QVAC_MODEL_PATH` to the GGUF file before starting QVAC. The server uses localhost port 11434.
 
+Image proof review and Goaly chat image context require a vision-capable GGUF model and its matching projection model. Set `QVAC_PROJECTION_MODEL_PATH` to the local projection-model file before starting QVAC; the config passes it to the `goal-digger` model as `projectionModelSrc`. Text chat and written-proof review remain available without this setting. The `/health` response reports vision configuration separately from base QVAC readiness. Do not use a projection model that does not match the selected vision model.
+
 This is a text inference check. Image evidence, challenge verification, payments, and the integrated demo remain future steps.
 
 The app lives in `frontend/`, `api/`, `qvac/`, and `vault/`. Follow [docs/HANDOFF-RUN.md](docs/HANDOFF-RUN.md) to start it.

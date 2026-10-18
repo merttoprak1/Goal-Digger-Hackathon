@@ -18,6 +18,7 @@ import {
   proofReviewBodyLimit,
 } from "./assessment.mjs";
 import { getRgbWallet } from "./rgb-wallet.mjs";
+import { validateImageDataUrl } from "./image-input.mjs";
 
 function qvacBaseUrl() {
   return (process.env.QVAC_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
@@ -50,6 +51,9 @@ export async function getHealth(fetchService = fetch) {
   return {
     status: qvac.status === "ok" && rgb.status === "ok" ? "ok" : "degraded",
     qvac,
+    vision: {
+      status: process.env.QVAC_PROJECTION_MODEL_PATH ? "configured" : "not_configured",
+    },
     rgb,
   };
 }
@@ -95,7 +99,7 @@ async function readText(request, field) {
   return body[field].trim();
 }
 
-async function readGoalyHistory(request, { builder = false } = {}) {
+export async function readGoalyHistory(request, { builder = false } = {}) {
   if (
     request.headers["content-type"]?.split(";")[0].trim().toLowerCase() !==
     "application/json"
@@ -106,9 +110,9 @@ async function readGoalyHistory(request, { builder = false } = {}) {
   let size = 0;
   for await (const chunk of request.iterator({ destroyOnReturn: false })) {
     size += chunk.length;
-    if (size > 4096) {
+    if (size > 8 * 1024 * 1024) {
       request.resume();
-      throw requestError(413, "The request body must not exceed 4 KB.");
+      throw requestError(413, "The Goaly request body must not exceed 8 MiB.");
     }
     chunks.push(chunk);
   }
@@ -132,17 +136,30 @@ async function readGoalyHistory(request, { builder = false } = {}) {
         !message ||
         Array.isArray(message) ||
         typeof message !== "object" ||
-        Object.keys(message).sort().join(",") !== "content,role" ||
+        !["content,role", "content,imageDataUrl,role"].includes(Object.keys(message).sort().join(",")) ||
         !["user", "assistant"].includes(message.role) ||
         typeof message.content !== "string" ||
         !message.content.trim() ||
-        message.content.length > 500,
+        message.content.length > 500 ||
+        (message.imageDataUrl !== undefined && message.role !== "user"),
     ) ||
-    messages.at(-1)?.role !== "user"
+    messages.at(-1)?.role !== "user" ||
+    messages.slice(0, -1).some((message) => message.imageDataUrl !== undefined)
   ) {
     throw requestError(400, "Send 1 to 12 valid chat messages ending with a user message.");
   }
-  const history = messages.map(({ role, content }) => ({ role, content: content.trim() }));
+  if (messages.at(-1).imageDataUrl !== undefined) {
+    try {
+      validateImageDataUrl(messages.at(-1).imageDataUrl);
+    } catch (error) {
+      throw requestError(400, error.message);
+    }
+  }
+  const history = messages.map(({ role, content, imageDataUrl }) => ({
+    role,
+    content: content.trim(),
+    ...(imageDataUrl ? { imageDataUrl } : {}),
+  }));
   if (!builder) return history;
   try {
     validateGoalyBuilderDraft(body.draft);
@@ -217,7 +234,7 @@ async function readProofReview(request) {
     size += chunk.length;
     if (size > proofReviewBodyLimit) {
       request.resume();
-      throw requestError(413, "The proof-review request body must not exceed 16 KB.");
+      throw requestError(413, "The proof-review request body must not exceed 8 MiB.");
     }
     chunks.push(chunk);
   }
@@ -236,11 +253,15 @@ async function readProofReview(request) {
 
 export async function askQvac(messages, responseFormat, fetchService = fetch) {
   let upstream;
+  const hasImage = messages.some((message) =>
+    (Array.isArray(message.content) && message.content.some((part) => part?.type === "image_url")) ||
+    typeof message.imageDataUrl === "string",
+  );
   try {
     upstream = await fetchService(`${qvacBaseUrl()}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(hasImage ? 60_000 : 30_000),
       body: JSON.stringify({
         model: "goal-digger",
         messages,
@@ -259,7 +280,7 @@ export async function askQvac(messages, responseFormat, fetchService = fetch) {
   } catch (error) {
     if (error.status) throw error;
     if (error.name === "TimeoutError" || error.name === "AbortError") {
-      throw requestError(504, "QVAC did not answer within 30 seconds.");
+      throw requestError(504, `QVAC did not answer within ${hasImage ? "60" : "30"} seconds.`);
     }
     if (upstream?.ok) throw requestError(502, "QVAC returned an invalid response.");
     throw requestError(503, "QVAC is unavailable. Start the local model server.");

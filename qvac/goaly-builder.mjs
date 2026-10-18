@@ -36,7 +36,15 @@ export function goalyBuilderMessages(history, currentDraft) {
       role: "system",
       content: `You are Goaly, a conversational challenge builder. Read all conversation messages and the current form draft. Return JSON matching the required schema. In draft, keep the existing current form value unless the user explicitly supplied a new value. Fill only facts stated by the user; never invent a stake, deadline, proof source, or visibility. You may propose a concise title and measurable successRule based on the user's stated goal, but do not add conditions or evidence the user did not agree to. For a lottery goal, successRule can say the user's ticket matches a winning number in the named draw; proofSource can be the named lottery operator's official published results. If the draw name is unknown, ask for it in answer and leave unknown fields null. The deadline field uses the browser's local timezone. A relative deadline such as 'in 10 minutes' is not a calendar datetime; ask for an exact future calendar date and time in the browser's local timezone and leave deadline null. Do not convert from UTC or another timezone. Reply in 1-3 short sentences, confirming known details and asking only the next missing question. Never say you created the challenge or sent an invoice. The user reviews this draft and must press the page's Create challenge and deposit button; KaleidoSwap then requires their explicit wallet approval. This chat cannot move funds. Existing draft values: ${JSON.stringify(draft)}`,
     },
-    ...history,
+    ...history.map(({ role, content, imageDataUrl }) => ({
+      role,
+      content: imageDataUrl
+        ? [
+            { type: "text", text: content },
+            { type: "image_url", image_url: { url: imageDataUrl } },
+          ]
+        : content,
+    })),
   ];
 }
 

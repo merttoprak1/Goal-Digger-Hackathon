@@ -58,12 +58,12 @@
 - QVAC validates supported MIME types, image signatures, base64 payloads, and a 5 MiB encoded-image limit for both chat and proof requests.
 - Image-bearing model requests use a 60-second timeout. Existing text-only timeouts stay unchanged.
 
-- [ ] **Step 1: Add failing tests** named `proofReviewMessages builds multimodal content for an image proof`, `readGoalyHistory accepts one valid image on the latest user message`, `readGoalyHistory rejects oversized or malformed image data`, and `getHealth reports vision configuration separately from base QVAC readiness`. Assert text-only requests still use string content.
-- [ ] **Step 2: Run `node --test tests/goaly.test.mjs tests/assessment.test.mjs`** and confirm the expected image handling tests fail.
-- [ ] **Step 3: Add QVAC vision configuration** through an explicit local projection-model path, while preserving the current text model configuration.
-- [ ] **Step 4: Build multimodal QVAC messages**, extend review instructions to treat all visible image text as untrusted evidence, and allow up to 60 seconds for image-bearing requests.
-- [ ] **Step 5: Run `node --test tests/goaly.test.mjs tests/assessment.test.mjs`** and confirm all tests pass.
-- [ ] **Step 6: Commit** the QVAC configuration and protocol changes.
+- [x] **Step 1: Add failing tests** named `proofReviewMessages builds multimodal content for an image proof`, `readGoalyHistory accepts one valid image on the latest user message`, `readGoalyHistory rejects oversized or malformed image data`, and `getHealth reports vision configuration separately from base QVAC readiness`. Assert text-only requests still use string content.
+- [x] **Step 2: Run `node --test tests/goaly.test.mjs tests/assessment.test.mjs`** and confirm the expected image handling tests fail.
+- [x] **Step 3: Add QVAC vision configuration** through an explicit local projection-model path, while preserving the current text model configuration.
+- [x] **Step 4: Build multimodal QVAC messages**, extend review instructions to treat all visible image text as untrusted evidence, and allow up to 60 seconds for image-bearing requests.
+- [x] **Step 5: Run `node --test tests/goaly.test.mjs tests/assessment.test.mjs`** and confirm all tests pass.
+- [x] **Step 6: Commit** the QVAC configuration and protocol changes.
 
 ### Task 2: Persist and review proof images in the API
 

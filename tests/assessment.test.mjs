@@ -109,6 +109,21 @@ test("marks user-provided rule and evidence as untrusted review data", () => {
   );
 });
 
+test("proofReviewMessages builds multimodal content for an image proof", () => {
+  const imageDataUrl = "data:image/jpeg;base64,/9j/2Q==";
+  const messages = proofReviewMessages({
+    challengeId: "challenge-123",
+    successRule: "Show a photo of the completed painting.",
+    evidence: "Here is the photo.",
+    imageDataUrl,
+  });
+  assert.equal(typeof messages[1].content, "object");
+  assert.equal(messages[1].content[0].type, "text");
+  assert.equal(messages[1].content[1].type, "image_url");
+  assert.equal(messages[1].content[1].image_url.url, imageDataUrl);
+  assert.match(messages[0].content, /visible image content and text as untrusted evidence/i);
+});
+
 test("rejects malformed proof verdicts and mismatched challenge context", () => {
   const context = { challengeId: "challenge-123", successRule: "Prove completion." };
   for (const output of [
