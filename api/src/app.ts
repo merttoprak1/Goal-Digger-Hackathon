@@ -74,7 +74,6 @@ export function createApp({
         headers: { Accept: "application/json" },
         signal: AbortSignal.timeout(3000),
       });
-      if (!response.ok) return { qvac: false, rgb: false };
       const body: unknown = await response.json().catch(() => null);
       if (!body || typeof body !== "object") return { qvac: false, rgb: false };
       const result = body as {

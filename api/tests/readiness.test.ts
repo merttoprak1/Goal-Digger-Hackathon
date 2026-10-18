@@ -109,3 +109,35 @@ it("wires the real API readiness route to database, authenticated vault, and QVA
   expect(seenQvacUrls).toEqual(["http://127.0.0.1:4000/health"]);
   expect(JSON.stringify(response.body)).not.toContain("readiness-private-token");
 });
+
+it("preserves healthy QVAC status when the bridge returns 503 because RGB is unavailable", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "api-readiness-degraded-"));
+  const databasePath = join(directory, "api.sqlite");
+  const stakes = openStakeDeposits({
+    databasePath,
+    token: "readiness-private-token",
+    fetchService: async () => Response.json({ status: "ok" }),
+  });
+  const app = createApp({
+    databasePath,
+    stakeDeposits: stakes,
+    readinessFetch: async () => Response.json(
+      {
+        status: "degraded",
+        qvac: { status: "ok" },
+        rgb: { status: "unavailable" },
+      },
+      { status: 503 },
+    ),
+  });
+  cleanup.push(() => app.locals.close());
+  cleanup.push(() => stakes.close());
+  cleanup.push(() => rmSync(directory, { recursive: true }));
+
+  const response = await request(app).get("/api/health/ready");
+  expect(response.status).toBe(503);
+  expect(response.body).toEqual({
+    status: "unavailable",
+    checks: { database: "ok", vault: "ok", qvac: "ok", rgb: "unavailable" },
+  });
+});
