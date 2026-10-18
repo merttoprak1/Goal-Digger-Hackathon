@@ -14,7 +14,7 @@ function provedMath(db: DatabaseSync, id: string, startsAt: string, proofDeadlin
   return proof ? String(proof.id) : null;
 }
 
-function provedCustom(db: DatabaseSync, id: string, startsAt: string, proofDeadline: string) {
+function provedCustom(db: DatabaseSync, id: string, proofDeadline: string) {
   const row = db
     .prepare(
       "SELECT submitted_at FROM custom_proofs WHERE challenge_id=? AND review_verdict='accepted'",
@@ -22,7 +22,7 @@ function provedCustom(db: DatabaseSync, id: string, startsAt: string, proofDeadl
     .get(id);
   if (!row) return null;
   const submittedAt = Date.parse(String(row.submitted_at));
-  return submittedAt >= Date.parse(startsAt) && submittedAt < Date.parse(proofDeadline) ? id : null;
+  return submittedAt < Date.parse(proofDeadline) ? id : null;
 }
 import { ApiError } from "../middlewares/error-handler.js";
 import { bettingBook } from "./betting.js";
@@ -180,7 +180,7 @@ export function outcomes(db: DatabaseSync, now: () => number) {
           );
         const finalizedAt = now();
         const proved = custom
-          ? provedCustom(db, id, challenge.startsAt, challenge.proofDeadline)
+          ? provedCustom(db, id, challenge.proofDeadline)
           : provedMath(db, id, challenge.startsAt, challenge.proofDeadline);
         if (finalizedAt < Date.parse(challenge.proofDeadline) && (!custom || !proved))
           throw new ApiError(
@@ -202,7 +202,9 @@ export function outcomes(db: DatabaseSync, now: () => number) {
             "PROOF_REVIEW_PENDING",
           );
         }
-        const snapshot = book.sealInsideTransaction(id);
+        const snapshot = book.sealInsideTransaction(id, {
+          allowBeforeCutoff: Boolean(custom && proved),
+        });
         const stakes = snapshot.stakes;
         const outcome = {
           challengeId: id,

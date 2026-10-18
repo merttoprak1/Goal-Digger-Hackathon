@@ -181,6 +181,22 @@ it("accepts text plus image proof", async () => {
   expect(f.lastCustomReviewInput()).toMatchObject({ evidence: "I completed the goal.", image: { mimeType: "image/png" } });
 });
 
+it("returns the saved Goaly verdict to the creator after refresh, without image bytes", async () => {
+  const f = await setup("custom");
+  f.time(f.starts);
+  await postImage(f, "I completed the goal.");
+  const creator = await f.get("/proof-note");
+  expect(creator.status).toBe(200);
+  expect(creator.body.review).toEqual({
+    verdict: "accepted",
+    reason: "Test reviewer assessment.",
+    reviewer: "local-qvac",
+  });
+  expect(JSON.stringify(creator.body)).not.toContain("data:image");
+  const opponent = await f.get("/proof-note", f.b.token);
+  expect(opponent.status).toBe(404);
+});
+
 it("rejects empty custom proof evidence", async () => {
   const f = await setup("custom");
   const response = await f.post("/proof-note", {});
@@ -189,13 +205,14 @@ it("rejects empty custom proof evidence", async () => {
   expect(f.customReviewCalls()).toBe(0);
 });
 
-it("rejects custom proof submitted before challenge start", async () => {
+it("ends the challenge when the creator proof is accepted before the start", async () => {
   const f = await setup("custom");
-  f.time(f.starts - 1000);
+  await f.opponent();
+  f.time(f.starts - 120000);
   const response = await f.post("/proof-note", { statement: "I completed the goal." });
-  expect(response.status).toBe(409);
-  expect(response.body.error.code).toBe("PROOF_WINDOW_NOT_OPEN");
-  expect(f.customReviewCalls()).toBe(0);
+  expect(response.status).toBe(200);
+  expect(response.body.outcome.status).toBe("success");
+  expect((await f.get("/outcome")).body.outcome.status).toBe("success");
 });
 
 it("rejects mismatched MIME signatures and oversized images before reviewer call", async () => {
@@ -274,6 +291,18 @@ it("blocks early failure finalization after rejected proof", async () => {
   expect((await f.post("/finalize")).body.error.code).toBe("PROOF_WINDOW_OPEN");
   f.time(f.deadline);
   expect((await f.post("/finalize")).body.outcome.status).toBe("failure");
+});
+
+it("settles paid stakes when another invoice was never paid", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  const late = (await request(f.app).post("/api/sessions").send({ displayName: "Late" })).body;
+  await f.post("/opponent-deposit", { amountAtomic: "1000000" }, late.token);
+  f.time(f.starts - 120000);
+  const response = await f.post("/proof-note", { statement: "I completed the goal." });
+  expect(response.status).toBe(200);
+  expect(response.body.outcome.status).toBe("success");
+  expect(response.body.outcome.stakes).toHaveLength(2);
 });
 
 it("blocks early success finalization until all stakes are resolved", async () => {
@@ -389,14 +418,13 @@ it("reviews custom evidence and only accepted proof can produce success", async 
   f.time(f.starts);
   const response = await f.post("/proof-note", { statement: "I completed the stated goal." });
   expect(response.status).toBe(200);
-  expect(response.body).toEqual({
-    saved: true,
-    review: {
-      verdict: "accepted",
-      reason: "Test reviewer assessment.",
-      reviewer: "local-qvac",
-    },
+  expect(response.body.saved).toBe(true);
+  expect(response.body.review).toEqual({
+    verdict: "accepted",
+    reason: "Test reviewer assessment.",
+    reviewer: "local-qvac",
   });
+  expect(response.body.outcome.status).toBe("success");
   f.time(f.deadline);
   const result = await f.post("/finalize");
   expect(result.body.outcome).toMatchObject({ status: "success", proofId: f.base.split("/").at(-1) });

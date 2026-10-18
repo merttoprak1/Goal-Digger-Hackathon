@@ -20,6 +20,7 @@ const recordSchema = z.object({
   creatorStakeAtomic: amount,
   confirmedPoolAtomic: amount,
   eligiblePoolAtomic: amount,
+  outcome: z.object({ status: z.enum(["success", "failure"]) }).nullable().optional(),
 });
 type LiveRecord = z.infer<typeof recordSchema>;
 
@@ -35,6 +36,7 @@ export interface BoardChallenge {
   proofMethod: string | null;
   stakeUsdt: string;
   poolUsdt: string | null;
+  outcome: { status: "success" | "failure" } | null;
   confirmedPoolUsdt: string;
   proofSource: string;
   proofDeadline: string;
@@ -180,6 +182,9 @@ export function toBoardChallenge(record: LiveRecord): BoardChallenge {
     proofMethod: record.proofMethod ?? null,
     stakeUsdt: formatAtomic(record.creatorStakeAtomic, 6),
     poolUsdt: eligible === 0n ? null : formatAtomic(record.eligiblePoolAtomic, 6),
+    outcome: record.outcome ?? (record.status === "succeeded"
+      ? { status: "success" }
+      : record.status === "failed" ? { status: "failure" } : null),
     confirmedPoolUsdt: formatAtomic(record.confirmedPoolAtomic, 6),
     proofSource: record.proofSource,
     proofDeadline: record.proofDeadline,
@@ -291,9 +296,9 @@ export function createBoardClient({
         headers: {
           Accept: "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...(body !== undefined && !(body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
         },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        ...(body !== undefined ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}),
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {
@@ -529,7 +534,17 @@ export function createBoardClient({
         }),
         input,
       ),
-    saveProof: (token: string, id: string, statement: string) =>
+    proofReview: (token: string, id: string) =>
+      call(
+        `/challenges/${encodeURIComponent(id)}/proof-note`,
+        token,
+        z.object({ review: z.object({
+          verdict: z.enum(["accepted", "rejected"]),
+          reason: z.string(),
+          reviewer: z.literal("local-qvac"),
+        }).nullable() }),
+      ),
+    saveProof: (token: string, id: string, statement: string, image?: File) =>
       call(
         `/challenges/${encodeURIComponent(id)}/proof-note`,
         token,
@@ -540,8 +555,12 @@ export function createBoardClient({
             reason: z.string(),
             reviewer: z.literal("local-qvac"),
           }),
+          outcome: z.object({ status: z.string() }).optional(),
+          settlementError: z.string().optional(),
         }),
-        { statement },
+        image || !statement.trim()
+          ? (() => { const form = new FormData(); form.set("statement", statement); if (image) form.set("image", image); return form; })()
+          : { statement },
       ),
     finalize: (token: string, id: string) =>
       call(

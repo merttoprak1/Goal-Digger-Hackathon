@@ -81,6 +81,37 @@ test("submits custom proof and returns Goaly's structured review", async () => {
   });
 });
 
+test("saveProof sends multipart fields and optional image", async () => {
+  const sent: Array<{ init?: RequestInit }> = [];
+  const client = createBoardClient({
+    fetchService: async (_url, init) => {
+      sent.push({ init });
+      return Response.json({ saved: true, review: { verdict: "accepted", reason: "Photo accepted.", reviewer: "local-qvac" } });
+    },
+  });
+  const image = new File(["encoded image"], "proof.png", { type: "image/png" });
+  await client.saveProof(token, live.id, "I finished the painting.", image);
+  assert.ok(sent[0].init?.body instanceof FormData);
+  const form = sent[0].init?.body as FormData;
+  assert.equal(form.get("statement"), "I finished the painting.");
+  assert.equal((form.get("image") as File).name, "proof.png");
+  assert.equal(new Headers(sent[0].init?.headers).get("Content-Type"), null);
+});
+
+test("reads the creator's saved proof verdict after refresh", async () => {
+  let requestUrl = "";
+  const client = createBoardClient({
+    fetchService: async (url) => {
+      requestUrl = String(url);
+      return Response.json({ review: { verdict: "accepted", reason: "Photo supports the rule.", reviewer: "local-qvac" } });
+    },
+  });
+  assert.deepEqual(await client.proofReview(token, live.id), {
+    review: { verdict: "accepted", reason: "Photo supports the rule.", reviewer: "local-qvac" },
+  });
+  assert.match(requestUrl, /\/proof-note$/);
+});
+
 test("lists challenges with the participant token and never sends a body", async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const client = createBoardClient({

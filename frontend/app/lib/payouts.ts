@@ -27,6 +27,17 @@ const execution = z.discriminatedUnion("status", [
   z.object({ status: z.literal("unknown"), txid: z.null() }),
   z.object({ status: z.literal("accepted"), txid: z.string().regex(/^[a-f0-9]{64}$/) }),
 ]);
+export function claimableShare<T extends { participantId: string; amountAtomic: string }>(
+  outcome: "success" | "failure" | null | undefined,
+  viewerId: string | null,
+  creatorId: string,
+  allocations: T[],
+): T | null {
+  if (!outcome || !viewerId) return null;
+  if (outcome === "success" && viewerId !== creatorId) return null;
+  if (outcome === "failure" && viewerId === creatorId) return null;
+  return allocations.find((allocation) => allocation.participantId === viewerId) ?? null;
+}
 export type Participant = z.infer<typeof participant>;
 export type PayoutChallenge = z.infer<typeof challenge>;
 export type PayoutPlan = z.infer<typeof plan>;

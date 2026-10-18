@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import type { Route } from "./+types/challenge-new";
@@ -61,6 +61,7 @@ export default function ChallengeNew() {
   const [error, setError] = useState<string | null>(null);
   const [participantName, setParticipantName] = useState("");
   const [signedIn, setSignedIn] = useState(false);
+  const submitRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     setSignedIn(Boolean(boardSession(localStorage).read()));
@@ -166,6 +167,20 @@ export default function ChallengeNew() {
       setPending(false);
     }
   }
+
+  useEffect(() => {
+    submitRef.current = submit;
+  });
+
+  useEffect(() => {
+    const createFromGoaly = () => {
+      void submitRef.current().finally(() => {
+        window.dispatchEvent(new Event("goaly:builder:create-finished"));
+      });
+    };
+    window.addEventListener("goaly:builder:create", createFromGoaly);
+    return () => window.removeEventListener("goaly:builder:create", createFromGoaly);
+  }, []);
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 lg:px-8">

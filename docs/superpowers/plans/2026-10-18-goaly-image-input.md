@@ -114,11 +114,11 @@
 - A pure payout helper derives claimable shares only from the settled outcome and its actual allocations; it returns no share while unsettled.
 - Each image picker shows a local preview, remove/replace controls, validation feedback, and a small accessible upload icon.
 
-- [ ] **Step 1: Add failing tests** in `frontend/tests/proof-image.test.ts` named `accepts supported images within the byte and pixel limits` and `rejects unsupported MIME type, oversized file, and oversized dimensions`. Add `board.test.ts` coverage named `saveProof sends multipart fields and optional image`, plus Goaly coverage named `askGoaly sends only the latest user image as temporary context`. Create `frontend/app/lib/payouts.ts` and `frontend/tests/payouts.test.ts` coverage for no claim before settlement, creator-only claims after success, and allocated opponent claims after failure.
-- [ ] **Step 2: Run focused frontend tests** and confirm they fail for the missing upload controls and request fields.
-- [ ] **Step 3: Add a shared image picker** with a small accessible upload icon, decoded-dimension validation, preview, validation feedback, removal, and replacement. Place it beside the formal proof input.
-- [ ] **Step 4: Place the image picker beside Goaly's chat composer** and send the image as temporary context, separate from formal proof submission. Strip image data from older chat history before each request. Enable settlement as soon as accepted proof is recorded, and show claim controls only for a settled winning allocation.
-- [ ] **Step 5: Run `npm test --prefix frontend`, `npm run typecheck --prefix frontend`, and `npm run build --prefix frontend`** and confirm all checks pass.
+- [x] **Step 1: Add failing tests** in `frontend/tests/proof-image.test.ts` named `accepts supported images within the byte and pixel limits` and `rejects unsupported MIME type, oversized file, and oversized dimensions`. Add `board.test.ts` coverage named `saveProof sends multipart fields and optional image`, plus Goaly coverage named `askGoaly sends only the latest user image as temporary context`. Add `frontend/tests/payouts.test.ts` coverage for no claim before settlement, creator-only claims after success, and allocated opponent claims after failure.
+- [x] **Step 2: Run focused frontend tests** and confirm they fail for the missing upload controls and request fields.
+- [x] **Step 3: Add a shared image picker** with a small accessible upload icon, decoded-dimension validation, preview, validation feedback, removal, and replacement. Place it beside the formal proof input.
+- [x] **Step 4: Place the image picker beside Goaly's chat composer** and send the image as temporary context, separate from formal proof submission. Strip image data from older chat history before each request. Enable settlement as soon as accepted proof is recorded, and show claim controls only for a settled winning allocation.
+- [x] **Step 5: Run `npm test --prefix frontend`, `npm run typecheck --prefix frontend`, and `npm run build --prefix frontend`** and confirm all checks pass.
 - [ ] **Step 6: Commit** the frontend controls and client changes.
 
 ### Task 4: Verify full proof flow and setup guidance
@@ -128,7 +128,7 @@
 - Modify: QVAC/local pilot setup documentation found during implementation
 - Test: Existing Goaly, API, frontend, and payment suites
 
-- [ ] **Step 1: Document local vision setup** with the required model and matching projection-model path. Do not download or commit model weights.
-- [ ] **Step 2: Run all Goaly, API, frontend, and payment tests** and confirm image changes do not affect wallet/payment behavior.
-- [ ] **Step 3: Run `git diff --check`** and review the final diff for unrelated wallet, payment, and pre-existing working-tree changes.
+- [x] **Step 1: Document local vision setup** with the required model and matching projection-model path. Do not download or commit model weights.
+- [x] **Step 2: Run all Goaly, API, frontend, and payment tests** and confirm image changes do not affect wallet/payment behavior.
+- [x] **Step 3: Run `git diff --check`** and review the final diff for unrelated wallet, payment, and pre-existing working-tree changes.
 - [ ] **Step 4: Commit** the setup documentation and any final test-only fixes.

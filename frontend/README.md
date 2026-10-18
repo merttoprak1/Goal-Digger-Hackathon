@@ -200,9 +200,13 @@ defaults, which is why the markup reads like the design handoff.
 
 - `/proofs` and `/ledger` are design placeholders. Proof submission and outcome
   actions currently live on challenge detail pages.
-- Current proof flows are timed math and custom written evidence. A custom proof
-  source is descriptive text; the app does not browse or authenticate third-party
-  websites, screenshots, or activity services.
+- Current proof flows include timed math and custom evidence reviewed by local
+  Goaly. Custom evidence accepts a written statement, a photo, or both. Goaly's
+  chat photo is temporary context; attach the formal proof from the challenge
+  page. The app does not browse or authenticate third-party websites or activity
+  services.
+- Photo review requires a vision-capable local QVAC model and its matching
+  projection model. See the repository README for `QVAC_PROJECTION_MODEL_PATH`.
 - The pilot uses Mutinynet test assets only. It is not mainnet custody or
   production hosting.
 

@@ -202,7 +202,7 @@ export default function Challenges() {
               Restore your participant
             </h2>
             <p className="my-3 text-sm text-slate-600">
-              Use the same access key as Payouts. A new name does not recover
+              Use the same access key as Rewards. A new name does not recover
               previous challenges.
             </p>
             <label htmlFor="participant-key" className="text-sm font-semibold">

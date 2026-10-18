@@ -260,7 +260,7 @@ test("concurrent unpaid checks share one scan and reuse its saved result", async
   assert.equal(scans, 1);
 });
 
-test("slow wallet history scans return the last known status while scanning continues", async (t) => {
+test("a status check waits for a slow wallet history scan", async (t) => {
   let scans = 0;
   const { request, status } = await fixture(t, async () => invoice, async (saved) => {
     scans += 1;
@@ -276,12 +276,7 @@ test("slow wallet history scans return the last known status while scanning cont
   const first = await status();
   const elapsed = performance.now() - started;
   assert.equal(first.status, 200);
-  assert.ok(elapsed < 1_300, `status response took ${elapsed}ms`);
-  assert.equal((await first.json()).status, "awaiting_payment");
-
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const completed = await status();
-  assert.equal(completed.status, 200);
-  assert.equal((await completed.json()).status, "settled");
+  assert.ok(elapsed >= 1_300, `status response took ${elapsed}ms`);
+  assert.equal((await first.json()).status, "settled");
   assert.equal(scans, 1);
 });

@@ -9,7 +9,9 @@ import {
   type BoardChallenge,
 } from "~/lib/board";
 import { waitForStake, stakeProgress } from "~/lib/payment-confirmation";
-import { createPayoutClient } from "~/lib/payouts";
+import { claimableShare, createPayoutClient } from "~/lib/payouts";
+import { ImagePicker } from "~/components/image-picker";
+import type { SelectedProofImage } from "~/lib/proof-image";
 import { formatAtomic, createAndPayStake, clearUnconfirmedStakeRequest, MISSED_CONFIRMATION } from "~/lib/wallet";
 
 const payouts = createPayoutClient({
@@ -189,6 +191,8 @@ export default function ChallengeDetail({ loaderData }: Route.ComponentProps) {
           creatorId={challenge.creatorId}
           viewerId={viewerId}
           deadline={challenge.proofDeadline}
+          proofMethod={challenge.proofMethod}
+          outcome={challenge.outcome}
           onChanged={setChallenge}
         />
         {viewerId === challenge.creatorId ? (
@@ -206,19 +210,26 @@ function PrizeShares({
   creatorId,
   viewerId,
   deadline,
+  proofMethod,
+  outcome,
   onChanged,
 }: {
   challengeId: string;
   creatorId: string;
   viewerId: string | null;
   deadline: string;
+  proofMethod: string | null;
+  outcome: { status: "success" | "failure" } | null;
   onChanged: (challenge: BoardChallenge) => void;
 }) {
   const [shares, setShares] = useState<Awaited<
     ReturnType<ReturnType<typeof createBoardClient>["prizeShares"]>
   > | null>(null);
   const [statement, setStatement] = useState("");
+  const [image, setImage] = useState<SelectedProofImage | null>(null);
   const [invoice, setInvoice] = useState("");
+  const [review, setReview] = useState<{ verdict: "accepted" | "rejected"; reason: string } | null>(null);
+  const [payoutPlan, setPayoutPlan] = useState<Awaited<ReturnType<typeof payouts.plan>>["plan"]>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
@@ -239,18 +250,49 @@ function PrizeShares({
     };
   }, [challengeId]);
 
+  useEffect(() => {
+    if (!viewerId || viewerId !== creatorId) return;
+    const token = boardSession(localStorage).read();
+    if (!token) return;
+    let active = true;
+    client.proofReview(token, challengeId).then((result) => {
+      if (active) setReview(result.review);
+    }).catch(() => { if (active) setReview(null); });
+    return () => { active = false; };
+  }, [challengeId, viewerId, creatorId]);
+
+  useEffect(() => {
+    if (!outcome || !viewerId) return;
+    const token = boardSession(localStorage).read();
+    if (!token) return;
+    let active = true;
+    payouts.plan(challengeId, token).then(({ plan }) => {
+      if (active) setPayoutPlan(plan);
+    }).catch(() => { if (active) setPayoutPlan(null); });
+    return () => { active = false; };
+  }, [challengeId, outcome?.status, viewerId]);
+
   async function saveProof() {
     const token = boardSession(localStorage).read();
     if (!token || busy) return;
     setBusy(true);
     setError("");
     try {
-      const result = await client.saveProof(token, challengeId, statement.trim());
-      setNote(
-        result.review.verdict === "accepted"
-          ? `Goaly accepted this proof: ${result.review.reason} The challenge is not settled yet.`
-          : `Goaly rejected this proof: ${result.review.reason} You can submit clearer evidence before the deadline.`,
-      );
+      const result = await client.saveProof(token, challengeId, statement.trim(), image?.file);
+      setReview(result.review);
+      if (result.outcome) {
+        onChanged(await client.get(token, challengeId));
+        setNote(`Goaly accepted this proof. The bet is closed: ${result.review.reason}`);
+      } else if (result.settlementError) {
+        setError(result.settlementError);
+        setNote(`Goaly accepted this proof: ${result.review.reason}`);
+      } else {
+        setNote(
+          result.review.verdict === "accepted"
+            ? `Goaly accepted this proof: ${result.review.reason} Settle the prize to make the creator's share claimable.`
+            : `Goaly rejected this proof: ${result.review.reason} You can submit clearer evidence before the deadline.`,
+        );
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The request failed.");
     } finally {
@@ -264,9 +306,13 @@ function PrizeShares({
     setBusy(true);
     setError("");
     try {
-      await client.finalize(token, challengeId);
-      await payouts.calculate(challengeId, token);
-      onChanged(await client.get(token, challengeId));
+      if (!outcome) await client.finalize(token, challengeId);
+      const [plan, refreshed] = await Promise.all([
+        payouts.calculate(challengeId, token),
+        client.get(token, challengeId),
+      ]);
+      setPayoutPlan(plan.plan);
+      onChanged(refreshed);
       setNote("The prize shares are settled. A winner claims with a WDK receive invoice.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The request failed.");
@@ -291,9 +337,7 @@ function PrizeShares({
     }
   }
 
-  const mine = shares
-    ? [...shares.success, ...shares.failure].find((row) => row.participantId === viewerId)
-    : null;
+  const mine = claimableShare(outcome?.status, viewerId, creatorId, payoutPlan?.allocations ?? []);
 
   return (
     <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -308,36 +352,39 @@ function PrizeShares({
           <ShareList title="Creator misses the goal" rows={shares.failure} />
         </div>
       ) : null}
-      {viewerId === creatorId && !passed ? (
-        <label className="mt-4 block text-sm font-semibold text-slate-800">
-          Proof statement
+      {viewerId === creatorId && proofMethod === "custom" && !passed && review?.verdict !== "accepted" ? (
+        <div className="mt-4 block text-sm font-semibold text-slate-800">
+          <label htmlFor={`proof-statement-${challengeId}`}>Proof statement (optional if you attach a photo)</label>
           <textarea
+            id={`proof-statement-${challengeId}`}
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal"
             maxLength={1000}
             value={statement}
             onChange={(event) => setStatement(event.target.value)}
           />
+          <ImagePicker id={`proof-image-${challengeId}`} label="Attach photo proof" onChange={setImage} />
           <button
             type="button"
             className="mt-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
-            disabled={busy || statement.trim().length < 3}
+            disabled={busy || (statement.trim().length < 1 && !image)}
             onClick={saveProof}
           >
             Save proof
           </button>
-        </label>
+        </div>
       ) : null}
-      {viewerId && passed ? (
+      {review ? <p role="status" className="mt-3 text-sm text-slate-600">Goaly {review.verdict}: {review.reason}</p> : null}
+      {viewerId && (passed || (viewerId === creatorId && review?.verdict === "accepted")) && (!outcome || !payoutPlan) ? (
         <button
           type="button"
           className="mt-4 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
           disabled={busy}
           onClick={settle}
         >
-          Settle prize
+          {outcome ? "Prepare prize shares" : "Settle prize"}
         </button>
       ) : null}
-      {viewerId && mine ? (
+      {viewerId && outcome && mine ? (
         <label className="mt-4 block text-sm font-semibold text-slate-800">
           WDK receive invoice for your share
           <input
@@ -415,7 +462,6 @@ function BetPanel({
   const [walletNote, setWalletNote] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [checkAttempt, setCheckAttempt] = useState(0);
   useEffect(() => {
     const token = boardSession(localStorage).read();
     if (!confirming || !token || confirmed) return;
@@ -438,7 +484,7 @@ function BetPanel({
       setError(cause instanceof Error ? cause.message : "Payment check failed.");
     });
     return () => abort.abort();
-  }, [confirming, challenge.id, confirmed, checkAttempt]);
+  }, [confirming, challenge.id, confirmed]);
   const open = challenge.status === "open" && challenge.visibility !== "solo";
   if (challenge.status !== "open") return null;
   if (challenge.visibility === "solo") {
@@ -485,10 +531,28 @@ function BetPanel({
     }
   }
 
-  function checkBet() {
-    setError("");
-    setConfirming(true);
-    setCheckAttempt((attempt) => attempt + 1);
+  async function checkBet() {
+    const token = boardSession(localStorage).read();
+    if (!token || busy) return;
+    setBusy(true);
+    setWalletNote("Checking the vault…");
+    try {
+      const receipt = await client.checkBet(token, challenge.id);
+      if (receipt.status === "credited") {
+        const next = await client.get(token, challenge.id);
+        setConfirmed(true);
+        setError("");
+        setWalletNote("Payment confirmed. Your bet joined the pool.");
+        onChanged(next);
+        return;
+      }
+      setWalletNote(stakeProgress(receipt.status));
+    } catch (cause) {
+      setWalletNote("");
+      setError(cause instanceof Error ? cause.message : "Payment check failed.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   const showBetForm = !confirming && !confirmed;
@@ -520,14 +584,14 @@ function BetPanel({
       ) : null}
       {walletNote ? <p role="status" className="text-sm text-slate-600">{walletNote}</p> : null}
 
-      {error && invoice ? (
+      {!confirmed ? (
         <button
           type="button"
           className="w-fit rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-800 disabled:opacity-50"
           disabled={busy}
           onClick={checkBet}
         >
-          Check bet payment
+          {busy ? "Checking the vault…" : "Check bet payment"}
         </button>
       ) : null}
       {error ? (
@@ -695,10 +759,26 @@ function PublishPanel({
     }
   }
 
-  function checkPayment() {
-    setError("");
-    setConfirming(true);
-    setCheckAttempt((attempt) => attempt + 1);
+  async function checkPayment() {
+    const token = boardSession(localStorage).read();
+    if (!token || busy) return;
+    setBusy(true);
+    setWalletNote("Checking the vault…");
+    try {
+      const receipt = await client.checkStake(token, challenge.id);
+      if (receipt.status === "credited") {
+        setError("");
+        setConfirming(true);
+        setCheckAttempt((attempt) => attempt + 1);
+        return;
+      }
+      setWalletNote(stakeProgress(receipt.status));
+    } catch (cause) {
+      setWalletNote("");
+      setError(cause instanceof Error ? cause.message : "Payment check failed.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -713,24 +793,24 @@ function PublishPanel({
           {busy ? "Please wait…" : "Approve stake in wallet"}
         </button>
       ) : null}
-      {error && invoice ? (
+      {invoice && needsStake ? (
         <p className="break-all rounded-xl bg-slate-50 p-3 font-mono text-xs text-slate-700">
           {invoice}
         </p>
       ) : null}
       {walletNote ? <p role="status" className="text-sm text-slate-600">{walletNote}</p> : null}
 
-      {error && invoice ? (
+      {invoice && needsStake && !confirming ? (
         <button
           type="button"
           className="w-fit rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-800 disabled:opacity-50"
           disabled={busy}
           onClick={checkPayment}
         >
-          Check payment
+          {busy ? "Checking the vault…" : "Check payment"}
         </button>
       ) : null}
-      {error && invoice && localStorage.getItem(`goal-digger-stake-send:${invoice}`) === "requested" ? (
+      {invoice && needsStake && !confirming && localStorage.getItem(`goal-digger-stake-send:${invoice}`) === "requested" ? (
         <button
           type="button"
           className="w-fit rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-800 disabled:opacity-50"

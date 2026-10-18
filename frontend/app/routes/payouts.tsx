@@ -5,7 +5,7 @@ import { payoutSession, PayoutError } from "~/lib/payouts";
 import type { PayoutChallenge } from "~/lib/payouts";
 
 export function meta() {
-  return [{ title: "Your payouts · Goal Digger" }];
+  return [{ title: "Your rewards · Goal Digger" }];
 }
 
 export default function Payouts() {
@@ -119,7 +119,7 @@ export default function Payouts() {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 lg:px-8">
       <p className="text-xs font-bold uppercase tracking-widest text-indigo-600">
-        Live payouts · Mutinynet
+        Live rewards · Mutinynet
       </p>
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
         Your winnings, in your wallet

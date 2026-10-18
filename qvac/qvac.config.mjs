@@ -21,8 +21,10 @@ export default {
         src: downloadedModel,
         type: "llm",
         preload: true,
-        ...(projectionModelSrc ? { projectionModelSrc } : {}),
-        config: { ctx_size: 1024 },
+        config: {
+          ctx_size: 8192,
+          ...(projectionModelSrc ? { projectionModelSrc } : {}),
+        },
       },
     },
   },

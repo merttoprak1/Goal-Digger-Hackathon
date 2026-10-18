@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createPayoutClient, payoutSession, PayoutError } from "../app/lib/payouts.ts";
+import { createPayoutClient, payoutSession, PayoutError, claimableShare } from "../app/lib/payouts.ts";
 const token = "a".repeat(64);
 test("sends only the receive invoice for preparation and an empty body for execution", async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
@@ -130,4 +130,25 @@ test("restores only the saved participant token and clears it on disconnect", ()
   assert.equal(blocked.read(), null);
   assert.equal(blocked.save(token), false);
   assert.doesNotThrow(() => blocked.clear());
+});
+
+const allocations = [
+  { participantId: "creator", amountAtomic: "3000000" },
+  { participantId: "opponent-a", amountAtomic: "1000000" },
+  { participantId: "opponent-b", amountAtomic: "2000000" },
+];
+
+test("does not expose a claim before outcome settlement", () => {
+  assert.equal(claimableShare(null, "creator", "creator", allocations), null);
+});
+
+test("allows only the creator to claim after success", () => {
+  assert.deepEqual(claimableShare("success", "creator", "creator", allocations), allocations[0]);
+  assert.equal(claimableShare("success", "opponent-a", "creator", allocations), null);
+});
+
+test("allows allocated opponents to claim after failure", () => {
+  assert.equal(claimableShare("failure", "creator", "creator", allocations), null);
+  assert.deepEqual(claimableShare("failure", "opponent-a", "creator", allocations), allocations[1]);
+  assert.deepEqual(claimableShare("failure", "opponent-b", "creator", allocations), allocations[2]);
 });

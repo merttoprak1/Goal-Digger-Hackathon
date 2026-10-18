@@ -14,9 +14,30 @@ const invoiceBody = z
   .object({ invoice: z.string().startsWith("rgb:").min(5).max(3000) })
   .strict();
 
+function settleAcceptedProof(store: ChallengeContext["store"], id: string) {
+  try {
+    return { outcome: store.finalizeOutcome(id) };
+  } catch (error) {
+    if (error instanceof ApiError) return { settlementError: error.message };
+    throw error;
+  }
+}
+
 export function registerSettlementRoutes(router: Router, context: ChallengeContext): void {
   const { store, proofReviewer } = context;
   const activeProofReviews = new Set<string>();
+
+  router.get("/:id/proof-note", (req, res) => {
+    const id = String(req.params.id);
+    const challenge = store.getChallenge(participantId(res), id);
+    if (!challenge) throw new ApiError(404, "Challenge not found.", "NOT_FOUND");
+    const saved = store.getProofReview(id);
+    res.json({
+      review: saved && (saved.reviewVerdict === "accepted" || saved.reviewVerdict === "rejected")
+        ? { verdict: saved.reviewVerdict, reason: saved.reason, reviewer: saved.reviewer }
+        : null,
+    });
+  });
 
   router.post("/:id/proof-note", async (req, res) => {
     const id = String(req.params.id);
@@ -33,19 +54,16 @@ export function registerSettlementRoutes(router: Router, context: ChallengeConte
       image = parsed.image;
     } else {
       const parsed = z
-        .object({ statement: z.string().trim().min(3).max(1000) })
+        .object({ statement: z.string().trim().min(1).max(1000) })
         .strict()
         .safeParse(req.body);
       if (!parsed.success) {
-        throw new ApiError(400, "Send a proof statement of 3 to 1000 characters or attach an image.", "INVALID_PROOF");
+        throw new ApiError(400, "Send a proof statement of 1 to 1000 characters or attach an image.", "INVALID_PROOF");
       }
       statement = parsed.data.statement;
     }
-    if ((!statement || statement.length < 3 || statement.length > 1000) && !image) {
-      throw new ApiError(400, "Send a proof statement of 3 to 1000 characters.", "INVALID_PROOF");
-    }
-    if (Date.now() < Date.parse(challenge.startsAt)) {
-      throw new ApiError(409, "The proof window has not started.", "PROOF_WINDOW_NOT_OPEN");
+    if ((!statement || statement.length < 1 || statement.length > 1000) && !image) {
+      throw new ApiError(400, "Send a proof statement of 1 to 1000 characters.", "INVALID_PROOF");
     }
     const imageHash = image?.hash ?? "";
     const existingReview = store.getProofReview(id);
@@ -62,7 +80,7 @@ export function registerSettlementRoutes(router: Router, context: ChallengeConte
     }
     const attempt = store.beginProofReview(id, statement, imageHash, image?.bytes ?? null, image?.mimeType ?? "");
     if (attempt.status === "accepted") {
-      res.json({ saved: true, review: attempt.review });
+      res.json({ saved: true, review: attempt.review, ...settleAcceptedProof(store, id) });
       return;
     }
     if (activeProofReviews.has(id)) {
@@ -94,7 +112,11 @@ export function registerSettlementRoutes(router: Router, context: ChallengeConte
         verdict: review.verdict === "accepted" ? "accepted" as const : "rejected" as const,
       };
       const saved = store.saveProofNote(id, statement, attempt.submittedAt, imageHash, recordedReview);
-      res.json({ saved: true, review: saved.review });
+      res.json({
+        saved: true,
+        review: saved.review,
+        ...(saved.review.verdict === "accepted" ? settleAcceptedProof(store, id) : {}),
+      });
     } finally {
       activeProofReviews.delete(id);
     }

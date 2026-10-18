@@ -1,9 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
-import { askGoaly } from "~/lib/goaly";
+import {
+  askGoaly,
+  createGoalyFinalConfirmation,
+  isGoalyDraftReadyToCreate,
+  type GoalyDraft,
+} from "~/lib/goaly";
 import { useGoalyBuilderDraft } from "~/lib/goaly-builder-context";
+import { ImagePicker } from "~/components/image-picker";
+import type { SelectedProofImage } from "~/lib/proof-image";
 
-type Message = { id: number; role: "assistant" | "user"; text: string };
+type Message = {
+  id: number;
+  role: "assistant" | "user";
+  text: string;
+  draft?: GoalyDraft;
+  readyToCreate?: boolean;
+  imageDataUrl?: string;
+};
 
 export function GoalyDock() {
   const { pathname } = useLocation();
@@ -18,7 +32,9 @@ export function GoalyDock() {
     },
   ]);
   const [input, setInput] = useState("");
+  const [image, setImage] = useState<SelectedProofImage | null>(null);
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
   const nextId = useRef(1);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -33,6 +49,7 @@ export function GoalyDock() {
       },
     ]);
     nextId.current = 1;
+    setImage(null);
   }, [builderMode]);
 
   useEffect(() => {
@@ -48,28 +65,41 @@ export function GoalyDock() {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
 
+  useEffect(() => {
+    const resetCreating = () => setCreating(false);
+    window.addEventListener("goaly:builder:create-finished", resetCreating);
+    return () => window.removeEventListener("goaly:builder:create-finished", resetCreating);
+  }, []);
+
   async function send(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const prompt = input.trim();
-    if (!prompt || busy) return;
+    if ((!prompt && !image) || busy) return;
     setInput("");
     setMessages((current) => [
       ...current,
-      { id: nextId.current++, role: "user", text: prompt },
+      { id: nextId.current++, role: "user", text: prompt || "Please review this image as context.", ...(image ? { imageDataUrl: image.dataUrl } : {}) },
     ]);
     setBusy(true);
     try {
       const conversation = [
         ...messages.map(({ role, text }) => ({ role, content: text })),
-        { role: "user" as const, content: prompt },
+        { role: "user" as const, content: prompt || "Please review this image as context.", ...(image ? { imageDataUrl: image.dataUrl } : {}) },
       ];
+      setImage(null);
       const reply = await askGoaly(conversation, builderMode ? builderDraft : undefined);
       if (reply.draft) {
         window.dispatchEvent(new CustomEvent("goaly:builder:apply", { detail: reply.draft }));
       }
       setMessages((current) => [
         ...current,
-        { id: nextId.current++, role: "assistant", text: reply.answer },
+        {
+          id: nextId.current++,
+          role: "assistant",
+          text: reply.answer,
+          draft: reply.draft,
+          readyToCreate: reply.readyToCreate,
+        },
       ]);
     } catch (cause) {
       setMessages((current) => [
@@ -122,18 +152,44 @@ export function GoalyDock() {
           aria-live="polite"
           className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-slate-50 p-4"
         >
-          {messages.map((message) => (
-            <p
-              key={message.id}
-              className={`max-w-[90%] whitespace-pre-wrap rounded-2xl px-3.5 py-3 text-sm leading-relaxed ${
-                message.role === "user"
-                  ? "self-end rounded-br-sm bg-indigo-600 text-white"
-                  : "self-start rounded-bl-sm border border-slate-200 bg-white text-slate-700 shadow-sm"
-              }`}
-            >
-              {message.text}
-            </p>
-          ))}
+          {messages.map((message) => {
+            const canCreate = builderMode &&
+              message.id === messages.at(-1)?.id &&
+              message.role === "assistant" &&
+              message.readyToCreate === true &&
+              Boolean(message.draft) &&
+              isGoalyDraftReadyToCreate(true, message.draft!, builderDraft);
+            return (
+              <div
+                key={message.id}
+                className={`max-w-[90%] whitespace-pre-wrap rounded-2xl px-3.5 py-3 text-sm leading-relaxed ${
+                  message.role === "user"
+                    ? "self-end rounded-br-sm bg-indigo-600 text-white"
+                    : "self-start rounded-bl-sm border border-slate-200 bg-white text-slate-700 shadow-sm"
+                }`}
+              >
+                <p>
+                  {canCreate
+                    ? createGoalyFinalConfirmation(message.draft!)
+                    : message.text}
+                </p>
+                {message.imageDataUrl ? <img src={message.imageDataUrl} alt="Attached image" className="mt-2 max-h-36 max-w-full rounded-lg object-cover" /> : null}
+                {canCreate ? (
+                  <button
+                    type="button"
+                    disabled={creating || busy}
+                    onClick={() => {
+                      setCreating(true);
+                      window.dispatchEvent(new Event("goaly:builder:create"));
+                    }}
+                    className="mt-3 rounded-lg bg-indigo-600 px-4 py-2.5 font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {creating ? "Preparing challenge…" : "Create goal"}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
           {busy ? (
             <p role="status" className="self-start text-xs font-medium text-slate-500">
               Goaly is thinking…
@@ -142,19 +198,24 @@ export function GoalyDock() {
           <div ref={endRef} />
         </div>
 
-        <form onSubmit={(event) => void send(event)} className="flex shrink-0 gap-2 border-t border-slate-200 bg-white p-3">
-          <label className="sr-only" htmlFor="goaly-dock-input">Ask Goaly</label>
-          <input
-            id="goaly-dock-input"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder={builderMode ? "Describe the challenge you want to create…" : "Ask Goaly about your goal…"}
-            maxLength={500}
-            className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-          />
+        <form onSubmit={(event) => void send(event)} className="flex shrink-0 items-end gap-2 border-t border-slate-200 bg-white p-3">
+          <div className="min-w-0 flex-1">
+            <label className="sr-only" htmlFor="goaly-dock-input">Ask Goaly</label>
+            <input
+              id="goaly-dock-input"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={builderMode ? "Describe the challenge you want to create…" : "Ask Goaly about your goal…"}
+              maxLength={500}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            />
+            <div className="mt-2">
+              <ImagePicker id="goaly-chat-image" label="Add photo" onChange={setImage} />
+            </div>
+          </div>
           <button
             type="submit"
-            disabled={!input.trim() || busy}
+            disabled={(!input.trim() && !image) || busy}
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Send

@@ -38,6 +38,15 @@ export const fundingReview = () => {
     "FUNDING_REVIEW",
   );
 };
+function unpaidInvoice(raw: unknown) {
+  try {
+    const invoice = JSON.parse(String(raw));
+    return invoice?.status === "awaiting_payment";
+  } catch {
+    return false;
+  }
+}
+
 export function readFunding(db: DatabaseSync, challenge: FundingTerms): StakeSnapshot[] {
   if (
     !db
@@ -51,10 +60,12 @@ export function readFunding(db: DatabaseSync, challenge: FundingTerms): StakeSna
     .prepare(
       "SELECT d.*,c.asset_id,c.txid,c.recipient_id,c.credited_at FROM stake_deposits d LEFT JOIN stake_credits c ON c.payment_id=d.payment_id WHERE d.challenge_id=? ORDER BY d.payment_id",
     )
-    .all(challenge.id);
+    .all(challenge.id)
+    .filter((d) => d.credited_at || !unpaidInvoice(d.invoice));
   const reserved = db
     .prepare("SELECT * FROM opponent_stakes WHERE challenge_id=?")
-    .all(challenge.id);
+    .all(challenge.id)
+    .filter((r) => deposits.some((d) => d.payment_id === r.payment_id));
   if (
     reserved.some(
       (r) =>
@@ -120,7 +131,7 @@ export function bettingBook(db: DatabaseSync, now: () => number) {
     return row ? JSON.parse(String(row.result)) : null;
   };
   // Caller holds the write transaction, including when finalizing an outcome.
-  const sealInsideTransaction = (id: string) => {
+  const sealInsideTransaction = (id: string, options?: { allowBeforeCutoff?: boolean }) => {
     const row = db
       .prepare(
         "SELECT c.result FROM challenges c JOIN publications p ON p.challenge_id=c.id WHERE c.id=?",
@@ -128,7 +139,7 @@ export function bettingBook(db: DatabaseSync, now: () => number) {
       .get(id);
     if (!row) throw new ApiError(404, "Published challenge not found.", "NOT_FOUND");
     const challenge = JSON.parse(String(row.result));
-    if (now() < Date.parse(challenge.bettingCutoff))
+    if (!options?.allowBeforeCutoff && now() < Date.parse(challenge.bettingCutoff))
       throw new ApiError(409, "Betting is still open.", "BETTING_OPEN");
     const stakes = readFunding(db, challenge);
     const previous = getBettingSnapshot(id);

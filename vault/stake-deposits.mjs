@@ -155,8 +155,19 @@ export function openStakeDeposits({ databasePath, token, fetchService = fetch })
         ].includes(result.status)
       )
         throw new Error("The vault returned an invalid status.");
-      if (result.status !== "settled")
+      if (result.status !== "settled") {
+        const checked = {
+          ...invoice,
+          status: result.status,
+          txid: result.txid ?? null,
+          checkedAt: new Date().toISOString(),
+        };
+        db.prepare("UPDATE stake_deposits SET invoice = ? WHERE payment_id = ?").run(
+          JSON.stringify(checked),
+          paymentId,
+        );
         return { status: result.status, newlyCredited: false, credit: null };
+      }
       if (typeof result.txid !== "string" || !/^[a-f0-9]{64}$/.test(result.txid))
         throw new Error("The settled deposit has no valid transaction ID.");
       // No await occurs inside this transaction. Concurrent checks cannot create two credits.

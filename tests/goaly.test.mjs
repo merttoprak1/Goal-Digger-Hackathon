@@ -22,14 +22,85 @@ test("Goaly builder uses strict structured output and preserves current values",
   const draft = { title: "", successRule: "", proofSource: "", stake: "5.00", deadline: "", visibility: "public" };
   const messages = goalyBuilderMessages([{ role: "user", content: "I want a lottery challenge" }], draft);
   assert.equal(messages[0].role, "system");
-  assert.match(messages[0].content, /must press the page's Create challenge and deposit button/i);
+  assert.ok(messages[0].content.length < 2400, "builder system prompt must leave room for the structured reply");
+  assert.match(messages[0].content, /Create goal button in your chat as the user's final confirmation/i);
+  assert.match(messages[0].content, /user must still approve the payment in KaleidoSwap/i);
   assert.equal(goalyBuilderFormat.json_schema.strict, true);
   const payload = {
     answer: "Which draw do you mean?",
+    readyToCreate: false,
     draft: { title: "Lottery challenge", successRule: null, proofSource: null, stake: "5.00", deadline: null, visibility: "public" },
   };
   assert.deepEqual(parseGoalyBuilderAnswer(JSON.stringify(payload)), payload);
+  assert.equal(goalyBuilderFormat.json_schema.schema.properties.readyToCreate.type, "boolean");
   assert.throws(() => parseGoalyBuilderAnswer("invalid"), /invalid challenge draft/i);
+});
+test("Goaly builder treats prefilled values as unconfirmed until the user confirms them", () => {
+  const draft = { title: "", successRule: "", proofSource: "", stake: "5.00", deadline: "2026-10-23T18:00", visibility: "public" };
+  const messages = goalyBuilderMessages([{ role: "user", content: "Help me prepare a challenge" }], draft);
+
+  assert.match(messages[0].content, /prefilled values are unconfirmed/i);
+  assert.match(messages[0].content, /confirm title\/rule/i);
+});
+test("Goaly builder accepts any written proof description without a URL or special format", () => {
+  const draft = { title: "", successRule: "", proofSource: "", stake: "5.00", deadline: "", visibility: "public" };
+  const messages = goalyBuilderMessages([{ role: "user", content: "Help me prepare a challenge" }], draft);
+
+  assert.match(messages[0].content, /custom challenge/i);
+  assert.match(messages[0].content, /proof source is free-form.*any non-empty description/i);
+  assert.match(messages[0].content, /do not require a url, special format/i);
+  assert.match(messages[0].content, /written proof statements and image attachments/i);
+  assert.match(messages[0].content, /chat image is context only/i);
+  assert.match(messages[0].content, /external verification/i);
+  assert.match(messages[0].content, /source, stake, future deadline, and visibility/i);
+  assert.match(messages[0].content, /my local time/i);
+  assert.match(messages[0].content, /do not ask.*timezone/i);
+  assert.match(messages[0].content, /never say you created or published the challenge, requested or sent an invoice/i);
+});
+
+test("structured challenge replies can request enough completion tokens for the full JSON draft", async () => {
+  await askQvac(
+    goalyBuilderMessages([{ role: "user", content: "Yes, I confirm all details." }], {
+      title: "Seven-day reading goal",
+      successRule: "Read for 30 minutes per day.",
+      proofSource: "Daily log",
+      stake: "1",
+      deadline: "2026-10-25T20:00",
+      visibility: "public",
+    }),
+    goalyBuilderFormat,
+    async (_url, init) => {
+      assert.equal(JSON.parse(init.body).max_tokens, 512);
+      return Response.json({
+        choices: [{ message: { content: JSON.stringify({
+          answer: "Review the summary and select Create goal if it is correct.",
+          readyToCreate: true,
+          draft: {
+            title: "Seven-day reading goal",
+            successRule: "Read for 30 minutes per day.",
+            proofSource: "Daily log",
+            stake: "1",
+            deadline: "2026-10-25T20:00",
+            visibility: "public",
+          },
+        }) } }],
+      });
+    },
+    512,
+  );
+});
+test("QVAC reports when a completion is truncated instead of returning partial JSON", async () => {
+  await assert.rejects(
+    askQvac(
+      [{ role: "user", content: "Confirm this challenge." }],
+      goalyBuilderFormat,
+      async () => Response.json({
+        choices: [{ finish_reason: "length", message: { content: '{"answer":"partial' } }],
+      }),
+      512,
+    ),
+    /response was truncated/i,
+  );
 });
 test("local QVAC returns an actual model reply and never a canned fallback", async () => {
   const history = [{ role: "user", content: "Wake up at 7" }];

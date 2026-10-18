@@ -14,6 +14,7 @@ import {
   proofReviewFormat,
   proofReviewMessages,
   assessProof,
+  arithmeticProofResult,
   parseProofReviewRequest,
   proofReviewBodyLimit,
 } from "./assessment.mjs";
@@ -251,7 +252,7 @@ async function readProofReview(request) {
   }
 }
 
-export async function askQvac(messages, responseFormat, fetchService = fetch) {
+export async function askQvac(messages, responseFormat, fetchService = fetch, maxTokens = 256) {
   let upstream;
   const hasImage = messages.some((message) =>
     (Array.isArray(message.content) && message.content.some((part) => part?.type === "image_url")) ||
@@ -265,7 +266,7 @@ export async function askQvac(messages, responseFormat, fetchService = fetch) {
       body: JSON.stringify({
         model: "goal-digger",
         messages,
-        max_tokens: 256,
+        max_tokens: maxTokens,
         temperature: 0,
         reasoning_budget: false,
         ...(responseFormat ? { response_format: responseFormat } : {}),
@@ -273,7 +274,10 @@ export async function askQvac(messages, responseFormat, fetchService = fetch) {
     });
     if (!upstream.ok) throw requestError(502, `QVAC returned HTTP ${upstream.status}.`);
     const body = await upstream.json();
-    const answer = body.choices?.[0]?.message?.content;
+    const choice = body.choices?.[0];
+    if (choice?.finish_reason === "length")
+      throw requestError(502, "QVAC response was truncated. Shorten the request and try again.");
+    const answer = choice?.message?.content;
     if (typeof answer !== "string" || !answer.trim())
       throw requestError(502, "QVAC returned no usable answer.");
     return { answer: answer.trim(), model: "goal-digger" };
@@ -339,14 +343,19 @@ export const server = createServer(
           }
         } else if (path === "/qvac/review") {
           const review = await readProofReview(request);
-          const completion = await askQvac(
-            proofReviewMessages(review),
-            proofReviewFormat,
-          );
-          try {
-            result = assessProof(completion.answer, review);
-          } catch {
-            throw requestError(502, "QVAC returned an invalid proof assessment.");
+          const arithmetic = arithmeticProofResult(review);
+          if (arithmetic) {
+            result = arithmetic;
+          } else {
+            const completion = await askQvac(
+              proofReviewMessages(review),
+              proofReviewFormat,
+            );
+            try {
+              result = assessProof(completion.answer, review);
+            } catch {
+              throw requestError(502, "QVAC returned an invalid proof assessment.");
+            }
           }
         } else {
           if (path === "/qvac/chat") {
@@ -356,6 +365,8 @@ export const server = createServer(
             const completion = await askQvac(
               goalyBuilderMessages(history, draft),
               goalyBuilderFormat,
+              fetch,
+              512,
             );
             try {
               result = parseGoalyBuilderAnswer(completion.answer);

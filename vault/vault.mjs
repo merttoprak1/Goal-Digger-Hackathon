@@ -8,7 +8,6 @@ import { timingSafeEqual } from "node:crypto";
 import { validatePayoutInvoice } from "./payout-invoice.mjs";
 
 const assetId = "rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0";
-const depositStatusResponseGraceMs = 1_000;
 const error = (status, message) => Object.assign(new Error(message), { status });
 function issueInvoice(amountAtomic) {
   const cwd = fileURLToPath(new URL("../wdk/", import.meta.url));
@@ -257,7 +256,7 @@ export function createVaultServer({
   );
   let queue = Promise.resolve();
   const depositChecks = new Map();
-  const server = createServer({ requestTimeout: 10_000 }, async (req, res) => {
+  const server = createServer({ requestTimeout: 70_000 }, async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "no-store");
     const reply = (status, body) => res.writeHead(status).end(JSON.stringify(body));
@@ -368,26 +367,7 @@ export function createVaultServer({
           reply(200, latest);
           return;
         }
-        let timer;
-        const timeout = new Promise((resolve) => {
-          timer = setTimeout(() => resolve({ timedOut: true }), depositStatusResponseGraceMs);
-        });
-        const outcome = await Promise.race([
-          operation.then(
-            (result) => ({ result }),
-            (cause) => ({ cause }),
-          ),
-          timeout,
-        ]);
-        clearTimeout(timer);
-        if ("timedOut" in outcome) {
-          // The WDK scan continues in the background. Return the last known state so
-          // tunnel/client timeouts cannot be mistaken for a failed wallet payment.
-          reply(200, latest);
-          return;
-        }
-        if ("cause" in outcome) throw outcome.cause;
-        reply(200, outcome.result);
+        reply(200, await operation);
         return;
       }
       const payoutValidation = req.url === "/vault/payouts/validate";
