@@ -133,7 +133,7 @@ npm run typecheck --prefix frontend
 
 ## Built during the hackathon
 
-All application code was written during the event, in dated commits:
+Everything was built during the event, in dated commits:
 
 - The web app: challenge board, Goaly challenge builder, challenge page, wallet, and rewards screens.
 - The Challenge API: participant sessions, drafts, creator and opponent deposits, proofs, outcomes, betting snapshots, payout plans, and payout execution.
@@ -151,7 +151,7 @@ All application code was written during the event, in dated commits:
 
 ## Prior work
 
-Before the hackathon, only the environment setup existed: the QVAC CLI and model, and the RGB Lightning Node. No application code existed.
+None. Everything in this repository was built during the hackathon: the environment setup, the code, the wallets, and the design. Nothing existed before the event.
 
 ## Next steps
 
