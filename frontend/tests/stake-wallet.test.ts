@@ -374,3 +374,17 @@ test("explicit recovery requires wallet Activity and an unpaid deposit", async (
   storage.setItem(`goal-digger-stake-send:${invoice}`, "ab".repeat(32));
   await assert.rejects(wallet.clearUnconfirmedStakeRequest({ ...options, walletActivityChecked: true }), /unresolved/);
 });
+
+test("a prize share asks KaleidoSwap for a witness receive invoice", async () => {
+  const { provider } = setup();
+  let amount = 0;
+  const invoiceText = await wallet.createShareInvoice({
+    ...provider,
+    witnessReceive: async (args) => {
+      amount = args.amount;
+      return { invoice: "rgb:share" };
+    },
+  }, "4000000");
+  assert.equal(invoiceText, "rgb:share");
+  assert.equal(amount, 4000000);
+});

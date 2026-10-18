@@ -14,6 +14,12 @@ export interface RgbProvider {
   }>;
   createUtxos?(args?: { num?: number; size?: number }): Promise<unknown>;
   getBtcBalance?(): Promise<{ freeColorableUtxos?: number | null }>;
+  witnessReceive?(args: {
+    assetId: string;
+    amount: number;
+    durationSeconds?: number;
+    minConfirmations?: number;
+  }): Promise<{ invoice?: string }>;
 }
 declare global {
   interface Window {
@@ -34,6 +40,28 @@ export function formatAtomic(value: unknown, precision: number): string {
     ? digits.slice(0, -precision) + (fraction ? "." + fraction : "")
     : digits;
 }
+export async function createShareInvoice(
+  provider: RgbProvider | undefined,
+  amountAtomic: string,
+) {
+  if (!provider?.witnessReceive)
+    throw Error("Install or enable KaleidoSwap, then reload this page.");
+  if (!/^[1-9]\d*$/.test(amountAtomic) || !Number.isSafeInteger(Number(amountAtomic)))
+    throw Error("The prize share amount is invalid.");
+  await provider.enable();
+  const info = await provider.getInfo();
+  if (!info.ready) throw Error("Unlock and connect the RGB wallet in the extension.");
+  const received = await provider.witnessReceive({
+    assetId: TEST_USDT_ASSET,
+    amount: Number(amountAtomic),
+    durationSeconds: 3600,
+    minConfirmations: 1,
+  });
+  if (!received?.invoice?.startsWith("rgb:"))
+    throw Error("KaleidoSwap did not return a receive invoice.");
+  return received.invoice;
+}
+
 export async function readWallet(provider?: RgbProvider) {
   if (!provider)
     throw Error("Install or enable the KaleidoSwap extension, then reload this page.");

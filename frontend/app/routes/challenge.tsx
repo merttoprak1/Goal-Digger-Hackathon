@@ -12,7 +12,13 @@ import { waitForStake, stakeProgress } from "~/lib/payment-confirmation";
 import { claimableShare, createPayoutClient } from "~/lib/payouts";
 import { ImagePicker } from "~/components/image-picker";
 import type { SelectedProofImage } from "~/lib/proof-image";
-import { formatAtomic, createAndPayStake, clearUnconfirmedStakeRequest, MISSED_CONFIRMATION } from "~/lib/wallet";
+import {
+  formatAtomic,
+  createAndPayStake,
+  clearUnconfirmedStakeRequest,
+  createShareInvoice,
+  MISSED_CONFIRMATION,
+} from "~/lib/wallet";
 
 const payouts = createPayoutClient({
   baseUrl: import.meta.env.VITE_API_BASE_URL ?? "/api",
@@ -227,7 +233,6 @@ function PrizeShares({
   > | null>(null);
   const [statement, setStatement] = useState("");
   const [image, setImage] = useState<SelectedProofImage | null>(null);
-  const [invoice, setInvoice] = useState("");
   const [review, setReview] = useState<{ verdict: "accepted" | "rejected"; reason: string } | null>(null);
   const [payoutPlan, setPayoutPlan] = useState<Awaited<ReturnType<typeof payouts.plan>>["plan"]>(null);
   const [busy, setBusy] = useState(false);
@@ -313,7 +318,7 @@ function PrizeShares({
       ]);
       setPayoutPlan(plan.plan);
       onChanged(refreshed);
-      setNote("The prize shares are settled. A winner claims with a WDK receive invoice.");
+      setNote("The prize shares are settled. Send the share to the connected KaleidoSwap wallet.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The request failed.");
     } finally {
@@ -321,13 +326,17 @@ function PrizeShares({
     }
   }
 
-  async function claim() {
+  async function claim(amountAtomic: string) {
     const token = boardSession(localStorage).read();
     if (!token || busy) return;
     setBusy(true);
     setError("");
     try {
-      await payouts.prepare(challengeId, token, invoice.trim());
+      const existing = await payouts.claim(challengeId, token);
+      const receiveInvoice =
+        existing.claim?.invoice ?? (await createShareInvoice(window.rgb, amountAtomic));
+      setNote("Sending the prize from the vault…");
+      await payouts.prepare(challengeId, token, receiveInvoice);
       await payouts.execute(challengeId, token);
       setNote("WDK accepted the prize share payment.");
     } catch (cause) {
@@ -385,23 +394,14 @@ function PrizeShares({
         </button>
       ) : null}
       {viewerId && outcome && mine ? (
-        <label className="mt-4 block text-sm font-semibold text-slate-800">
-          WDK receive invoice for your share
-          <input
-            className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal"
-            value={invoice}
-            onChange={(event) => setInvoice(event.target.value)}
-            placeholder="rgb:..."
-          />
-          <button
-            type="button"
-            className="mt-2 rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-800 disabled:opacity-50"
-            disabled={busy || !invoice.trim().startsWith("rgb:")}
-            onClick={claim}
-          >
-            Claim share with WDK
-          </button>
-        </label>
+        <button
+          type="button"
+          className="mt-4 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+          disabled={busy}
+          onClick={() => claim(mine.amountAtomic)}
+        >
+          {busy ? "Sending the prize…" : "Send share to this wallet"}
+        </button>
       ) : null}
       {note ? <p role="status" className="mt-3 text-sm text-slate-600">{note}</p> : null}
       {error ? (
