@@ -1,243 +1,161 @@
-# Goal Digger 💪 — Challenge yourself, on Bitcoin
+> **Note:** This commit changes only this README. It was pushed after the 13:00 submission deadline so that the README describes the code that was already submitted. No code changed.
+
+# Goal Digger — Bet on yourself. Settle on Bitcoin.
 
 **Team:** Bounty Hunters
 
 | Name | GitHub | Responsibility |
 |---|---|---|
-| Mert Toprak | [@merttoprak1](https://github.com/merttoprak1) | Local QVAC, RGB node, integration endpoints, and the integrated demo |
-| Vesim Karadag | [@Vesimspace](https://github.com/Vesimspace) | React interface, challenge forms, evidence submission, and pool display |
-| Ege Okyay | [@Ege-Okyay](https://github.com/Ege-Okyay) | Challenge rules, SQLite, stake records, deadlines, and settlement logic |
-
-QVAC and the RGB node run on Mert's laptop. The team integrates the frontend and backend there for the demo.
-
-The current handoff is in [docs/HANDOFF.md](docs/HANDOFF.md). It covers how to run the app and how to demo a challenge.
+| Mert Toprak | [@merttoprak1](https://github.com/merttoprak1) | QVAC, RGB, WDK, and integration |
+| Vesim Karadag | [@Vesimspace](https://github.com/Vesimspace) | Frontend and UX |
+| Ege Okyay | [@Ege-Okyay](https://github.com/Ege-Okyay) | Challenge rules and settlement |
 
 ## Idea
-Set a challenge and stake USDT on completing it. Other participants can bet against you. All confirmed stakes form one pool.
 
-If you prove success before the deadline, you win the entire pool. Otherwise, opponents split the pool in proportion to their stakes.
+You stake USDT on a goal. Friends bet USDT against you. A local AI judges your proof. RGB pays the winner on Bitcoin.
 
-Start with three templates: wake up on time, pass an exam, and complete a run. Custom challenges declare their own proof method and source.
+1. **Describe.** Chat with Goaly, the local assistant. It fills the title, success rule, proof source, stake, deadline, and visibility. You check every field.
+2. **Stake.** You pay the stake in the KaleidoSwap extension. The challenge goes public only after that RGB payment settles.
+3. **Bet against.** Friends stake against you before the betting cutoff. Only settled transfers join the pool.
+4. **Prove.** You send text or a photo. QVAC returns `accepted`, `rejected`, or `unclear`. If the proof is not accepted, you can try again before the proof deadline. An accepted proof closes the challenge early.
+5. **Get paid.** If you succeed, you take the whole pool. If you fail, opponents split the pool in proportion to their stakes. The winner's wallet creates a receive invoice, and the WDK vault sends that USDT share.
 
-Everyone sees the success rule, proof source, betting cutoff, and proof deadline before betting. These terms become fixed after the first opponent bets.
+Example: the creator stakes 1 USDT, and two opponents stake 1 and 2 USDT. The pool is 4 USDT. If the creator succeeds, the creator gets 4 USDT. If not, the opponents get 1.333333 and 2.666667 USDT.
 
-Unclear evidence allows another attempt before the deadline. No accepted proof by the deadline means the creator loses. Charity is optional.
+## Architecture
 
-QVAC assesses evidence locally against the declared rules. RGB handles the stakes and payouts on Bitcoin. The hackathon demo uses test assets on Mutinynet.
+| Port | Service | Folder |
+|---|---|---|
+| 5173 | Web app (React Router 7, Vite). Proxies `/api` and `/qvac` | `frontend/` |
+| 4002 | Challenge API (Express, Zod, SQLite): challenges, bets, proofs, payouts | `api/` |
+| 4000 | Goaly server: prompts, JSON schemas, and input checks for QVAC | `qvac/` |
+| 11434 | QVAC model server (Qwen3.5-2B Q4, plus a vision projector) | `qvac/qvac.config.mjs` |
+| 4001 | Vault: private, token-protected. Invoices, deposit checks, payouts | `vault/` |
+| — | WDK RGB wallet on the Bare runtime. Called by the vault | `wdk/` |
+| 3001 | RGB Lightning Node. Funding source and health check | external |
 
-See [TASKS.md](TASKS.md) for the next small integration steps. See [PLAN.md](PLAN.md) for the product rules and team split.
+The user's wallet is the KaleidoSwap browser extension. The web app talks to it through `window.rgb` and `postMessage`. The user approves every stake in KaleidoSwap.
 
-## Stack
-- RGB Lightning Node + kaleido-cli
-- QVAC (Qwen3.5 2B, Supertonic TTS)
-- WDK (separate Mutinynet connection check)
-- TypeScript, React + Vite, DaisyUI, Framer Motion, Express, SQLite
+All transfers are RGB witness transfers of test USDT on Mutinynet (Bitcoin signet). They have real transaction IDs.
 
-## Local QVAC: first integration step
+## RGB operations
 
-Use the installed QVAC CLI and Node.js 24 or later. The config finds the downloaded Qwen3.5 2B model in `~/.qvac/models`.
+- **One invoice per stake.** The vault creates a witness receive invoice for each stake. Its recipient ID links the payment to one participant and one challenge.
+- **Wallet send.** The app sends `REQUEST_ASSET_SEND` with witness data to KaleidoSwap. The user approves one popup. Nobody copies an address.
+- **Transfer status.** The vault reads `WaitingCounterparty`, `WaitingConfirmations`, `Settled`, and `Failed` for each invoice. Only transfers settled before the betting cutoff count in the pool. A wrong amount or a duplicate transfer stops the challenge for review.
+- **Payout.** The winner's KaleidoSwap wallet creates a witness receive invoice (`witnessReceive`). The vault decodes it, checks the asset and the amount, and sends the share with WDK.
+- **Read the node.** `GET /rgb/wallet` on port 4000 reads BTC balances and RGB assets from the RGB Lightning Node. It never sends funds.
 
-1. Start the local model server from the repository root:
+## QVAC features
 
-```bash
-qvac serve --openai --config qvac/qvac.config.mjs
-```
+- **Local OpenAI-compatible server.** `qvac serve --openai` serves Qwen3.5-2B (Q4_K_M GGUF) as the model `goal-digger`.
+- **Vision.** A matching projection model (`QVAC_PROJECTION_MODEL_PATH`) lets the same model read photo proof and chat images.
+- **Structured output.** Every model call uses `temperature: 0` and a strict JSON schema.
+  - `/qvac/builder` turns the chat into a challenge draft. A **Create goal** button appears only when every field is confirmed.
+  - `/qvac/review` checks text or photo proof against the challenge's success rule. It returns a verdict and a reason.
+  - `/qvac/assess` reads the answer to a fresh math problem for the wake-up template. Code checks if the answer is correct.
+- **Input safety.** The prompts treat rules, proof text, and image content as data, not instructions. The server rejects any model output that does not match the schema.
+- **No money access.** Goaly returns only a verdict. It cannot publish a challenge, approve a payment, or move funds.
 
-2. In another terminal, test the model from the same folder:
+## WDK features
 
-```bash
-node scripts/check-qvac.mjs
-```
+The vault wallet is a WDK RGB wallet: `@tetherto/wdk-wallet` 1.0.0-beta.8, `@utexo/wdk-wallet-rgb`, and `@utexo/rgb-lib-bare`. It runs on the Bare runtime (`wdk/check.mjs`).
 
-The check asks the model to calculate 2 + 2. It succeeds only when the answer is 4.
+- `receiveAsset` (witness) creates one invoice per stake.
+- `refreshWallet` and `listTransfers` check deposits and payouts against the chain.
+- `decodeRGBInvoice` checks the winner's invoice, and `transfer` signs and sends the share.
+- `npm run prepare-native` patches the RGB binding so the wallet uses Mutinynet (CustomSignet).
 
-For another model location, set `QVAC_MODEL_PATH` to the GGUF file before starting QVAC. The server uses localhost port 11434.
+Safety:
 
-Image proof review and Goaly chat image context require a vision-capable GGUF model and its matching projection model. Set `QVAC_PROJECTION_MODEL_PATH` to the local projection-model file before starting QVAC; the config passes it to the `goal-digger` model as `projectionModelSrc`. Text chat and written-proof review remain available without this setting. The `/health` response reports vision configuration separately from base QVAC readiness. Do not use a projection model that does not match the selected vision model.
+- The vault listens only on `127.0.0.1` and requires a bearer token.
+- The vault writes each payout to a journal once (`flag: "wx"`). It never sends a payout again automatically.
+- Settlement is checked again from WDK transfer history.
+- The seed stays in `wdk/data/seed.txt` with `0600` permissions. Git ignores the `data/` folder.
 
-This is a text inference check. With a vision-capable model and matching projection file configured, Goaly can also review private photo evidence and use an attached chat image as temporary context. API setup remains necessary for challenge verification; wallet and payout operations stay on the existing explicit approval and claim flows.
+## Install and run
 
-The app lives in `frontend/`, `api/`, `qvac/`, and `vault/`. Follow [docs/HANDOFF-RUN.md](docs/HANDOFF-RUN.md) to start it.
+Requirements: macOS, Node.js 24 or later, the QVAC CLI, an unlocked RGB Lightning Node on port 3001, and the KaleidoSwap extension in Chrome with a node-less RGB wallet on Mutinynet.
 
-Use a normal commit and push for each completed step. Do not stash, rebase, or force push. Merge divergent histories.
+1. Download Qwen3.5-2B-Q4_K_M with QVAC. The config finds it in `~/.qvac/models`. For photo proof, also download its matching projection model.
 
-Reference: [QVAC HTTP server](https://docs.qvac.tether.io/cli/http-server/).
+2. Install dependencies:
 
-## WDK connection check
+   ```bash
+   npm install --prefix api
+   npm install --prefix frontend
+   npm install --prefix wdk
+   npm run prepare-native --prefix wdk
+   ```
 
-The separate [WDK check](docs/WDK-CHECK.md) connects a fresh test wallet to Mutinynet through the Bare runtime.
-It uses the mentor's sandbox package version. It does not send funds or change the existing node.
+3. Start each service in its own terminal, from the repository root:
 
-The WDK wallet received [50,000 confirmed test sats](docs/WDK-FUNDING.md) for RGB tests.
-It received [1 confirmed test USDT](docs/WDK-DEPOSIT.md) through an explicit CustomSignet adapter.
-It then [signed and returned that token](docs/WDK-RETURN.md) to the original node. Both wallets confirmed settlement.
+   ```bash
+   QVAC_PROJECTION_MODEL_PATH=/path/to/mmproj.gguf qvac serve --openai --config qvac/qvac.config.mjs
+   ```
 
-The [private deposit endpoint](docs/VAULT-API.md) creates WDK invoices with saved payment IDs on localhost port 4001.
-It requires a backend token. GET `/vault/deposits/:paymentId` checks the actual incoming transfer and reports its payment status.
-The [stake deposit adapter](docs/STAKE-DEPOSITS.md) binds invoices to participants and records confirmed contributions once.
-Ege's challenge API still needs to call it with its eligibility and deadline checks.
-The [payout invoice validator](docs/PAYOUT-VALIDATION.md) checks recipient invoices without moving funds. A payout send endpoint remains a future step.
+   ```bash
+   node qvac/server.mjs
+   ```
 
-## Local RGB: second integration step
+   ```bash
+   openssl rand -hex 24 > /tmp/goal-digger-vault-token
+   chmod 600 /tmp/goal-digger-vault-token
+   VAULT_API_TOKEN="$(cat /tmp/goal-digger-vault-token)" node vault/vault.mjs
+   ```
 
-After the node is running and unlocked, run this read-only check:
+   ```bash
+   cd api && VAULT_API_TOKEN="$(cat /tmp/goal-digger-vault-token)" npm run dev
+   ```
 
-```bash
-node scripts/check-rgb.mjs
-```
+   ```bash
+   cp frontend/.env.example frontend/.env
+   cd frontend && API_TARGET=http://127.0.0.1:4002 QVAC_API_TARGET=http://127.0.0.1:4000 npm run dev -- --host 127.0.0.1
+   ```
 
-It reads node and network information from localhost port 3001. It displays the network, block height, channel count, and peer count.
+4. Check `http://127.0.0.1:4002/api/health/ready`. It must return HTTP 200 with `database`, `vault`, `qvac`, and `rgb` all `ok`.
 
-The check does not display wallet keys or move funds. A successful connection does not establish that a payment or asset transfer works.
+5. Open `http://127.0.0.1:5173`.
 
-Reference: [RGB Lightning Node API](https://github.com/RGB-Tools/rgb-lightning-node#use).
+If port 11434 is in use, add `--port 11435` to the QVAC command, and start the Goaly server with `QVAC_BASE_URL=http://127.0.0.1:11435`.
 
-## Local health endpoint: third integration step
+Before you share the app through a tunnel, set `PILOT_MODE=true` and a unique `PILOT_ACCESS_PASSWORD` in `frontend/.env`. See [docs/CLOSED-MUTINYNET-PILOT.md](docs/CLOSED-MUTINYNET-PILOT.md) for the full runbook, backups, and recovery.
 
-Start the endpoint in another terminal:
-
-```bash
-node qvac/server.mjs
-```
-
-Open [the health endpoint](http://127.0.0.1:4000/health). A healthy response looks like this:
-
-```json
-{
-  "status": "ok",
-  "qvac": { "status": "ok" },
-  "rgb": { "status": "ok" }
-}
-```
-
-The endpoint checks both services on each request, with a three-second timeout per service. It returns HTTP 200 when both checks pass.
-
-If either check fails, it returns HTTP 503 with `status: degraded` and each service's result. An upstream HTTP error includes its status code.
-
-QVAC passes when its server lists the `goal-digger` model. This checks configuration and connectivity, not inference or whether the model is loaded.
-
-RGB passes when the unlocked node returns its information. The endpoint never returns wallet details or moves funds.
-
-The server uses localhost port 4000 and requires no npm dependencies.
-
-## Ask local QVAC
-
-With `node qvac/server.mjs` running, send a short prompt:
-
-```bash
-curl http://127.0.0.1:4000/qvac/ask \
-  -H 'Content-Type: application/json' \
-  -d '{"prompt":"What is 2 + 2? Reply with only the number."}'
-```
-
-Example response:
-
-```json
-{"answer":"4","model":"goal-digger"}
-```
-
-Send only the `prompt` field, containing 1–500 characters. The request body must not exceed 4 KB. Inference has a 30-second timeout.
-
-| HTTP status | Meaning |
-|---|---|
-| 400 | Invalid JSON or prompt |
-| 413 | Request body too large |
-| 415 | Incorrect content type |
-| 502 | QVAC rejected the request or returned an unusable response |
-| 503 | Local QVAC is unavailable |
-| 504 | QVAC timed out |
-
-Errors return an `error` message. They never return a fabricated model answer. This endpoint generates text only and does not assess challenge evidence yet.
-
-## Structured evidence assessment
-
-Send text evidence for the fixed demo question: **What is 17 + 8?**
+### Tests
 
 ```bash
-curl http://127.0.0.1:4000/qvac/assess \
-  -H 'Content-Type: application/json' \
-  -d '{"evidence":"My answer is 25."}'
+npm test --prefix api
+npm run typecheck --prefix api
+node --test tests/*.test.mjs
+node --experimental-strip-types --test frontend/tests/*.test.ts
+npm run typecheck --prefix frontend
 ```
 
-Example response:
+## Built during the hackathon
 
-```json
-{
-  "rule": { "id": "wake-up-math-demo-v1", "question": "What is 17 + 8?" },
-  "verdict": "accepted",
-  "reason": "The submitted answer is correct."
-}
-```
+All application code was written during the event, in dated commits:
 
-| Evidence | Expected verdict |
-|---|---|
-| My answer is 25. | accepted |
-| My answer is 24. | rejected |
-| I am not sure. | unclear |
-| Either 25 or 26. | unclear |
+- The web app: challenge board, Goaly challenge builder, challenge page, wallet, and rewards screens.
+- The Challenge API: participant sessions, drafts, creator and opponent deposits, proofs, outcomes, betting snapshots, payout plans, and payout execution.
+- The Goaly server: chat, challenge builder, proof review (text and photo), and timed math.
+- The vault and the WDK RGB wallet integration on Mutinynet.
 
-QVAC extracts a numeric answer through a JSON schema. The server checks the result against the fixed answer and the numbers in the submitted evidence.
+## Mocked, simulated, or hard-coded
 
-Submit one numeric answer without the question or other numbers. Missing, conflicting, or unsupported answers produce `unclear`. Callers cannot submit a replacement rule or verdict.
-
-Send only an `evidence` string with 1–500 characters. The endpoint uses the same size limit, inference timeout, and service-error statuses as `/qvac/ask`.
-
-Invalid structured output returns HTTP 502. A service error never becomes a rejected answer or a lost challenge.
-
-Acceptance means the numeric answer matches this demo question. It does not prove identity, wake-up time, document authenticity, or completion of a real challenge.
-
-Ege's backend will own fresh questions, proof windows, retries, and final challenge outcomes. This endpoint cannot authorize a payment.
-
-Run the assessment checks with:
-
-```bash
-node --test tests/assessment.test.mjs
-```
-
-## Read RGB balances and assets
-
-With the node unlocked and `node qvac/server.mjs` running, request the wallet snapshot:
-
-```bash
-curl http://127.0.0.1:4000/rgb/wallet
-```
-
-The endpoint returns:
-
-| Field | Meaning |
-|---|---|
-| `network` | The network reported by the node |
-| `balanceSource` | `cached`, because this request skips blockchain synchronization |
-| `bitcoin` | Separate vanilla and colored bitcoin balances, in satoshis |
-| `assets` | RGB asset identifiers, schemas, names, tickers, precision, and balances |
-
-Each balance includes `settled`, `future`, and `spendable`. RGB balances also include `offchainOutbound` and `offchainInbound`.
-
-All amounts are integer strings. RGB amounts use atomic units. For example, `100000000` with precision 6 represents 100 asset units.
-
-Use the asset identifier and precision, rather than assuming that a ticker identifies an authentic asset. The demo uses test assets.
-
-An empty asset list returns `assets: []`. Invalid or unavailable data produces an error rather than zero balances.
-
-The endpoint returns HTTP 503 for an unavailable, locked, or inaccessible node. It returns 504 for a timeout and 502 for invalid upstream data.
-
-Requests time out after 10 seconds. The endpoint never returns wallet keys or sends transactions.
-
-Run the wallet checks with:
-
-```bash
-node --test tests/rgb-wallet.test.mjs
-```
-
-Reference: [RGB Lightning Node API specification](https://github.com/RGB-Tools/rgb-lightning-node/blob/master/openapi.yaml).
-
-## Payment integration contract
-
-The [payment API contract](docs/PAYMENT-API.md) defines a transfer request and status lookup for Ege's future backend. These endpoints are not implemented yet.
-
-## Test transfer status
-
-The transfer of 1 test USDT to Ege is verified. The sender has 99 test USDT spendable, and Ege reported 101 test USDT settled and spendable. See [the transfer record](docs/RGB-TRANSFER.md).
+- **Test assets only.** Every stake and payout uses test USDT on Mutinynet. The asset ID is hard-coded (`rgb:lX~ToKsO-Iup7dJ5-UM794sA-9WD21ge-VHYzBGb-E9PA_h0`), and one stake is limited to 100 test USDT.
+- **One custodial vault.** One WDK wallet holds every pool. It is not a non-custodial escrow.
+- **Goaly runs on the demo machine.** In the product, Goaly and QVAC run on the goal creator's computer, so the proof stays there. For this demo, they run on the same machine as the API and the vault.
+- **Proof authenticity.** The model reads the evidence. It cannot prove that a photo or a document is genuine.
+- **Templates.** The web app creates custom challenges. The API also runs the wake-up template with timed math proof. The `exam` and `run` template names exist in the API, but they have no proof flow yet.
+- **Access.** The pilot password gate protects only the Vite development server. It is not production hosting.
 
 ## Prior work
-No application code yet. Only the environment setup above existed before the hackathon; all app code is written during the event in dated commits.
+
+Before the hackathon, only the environment setup existed: the QVAC CLI and model, and the RGB Lightning Node. No application code existed.
+
+## Next steps
+
+- Mainnet USDT on RGB.
+- Non-custodial escrow instead of our vault wallet.
+- Stake any RGB asset that is already in KaleidoSwap, not only USDT.
+- Proof integrations: Strava runs, exam results, and wake-up apps.
