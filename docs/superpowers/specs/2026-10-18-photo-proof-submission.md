@@ -12,6 +12,10 @@ Let a participant submit one photo, written proof, or both, then let the local G
 - A chat image gives Goaly conversational context only. It does not submit proof, change a challenge, or create a review record.
 - The API rejects empty evidence, unsupported media types, corrupt images, and images larger than 5 MiB with clear client errors.
 - On submit, Goaly reviews the statement and image together with the challenge-specific success rule. Image-only proof is valid input. The UI shows the existing accepted, rejected, or unclear result behavior.
+- A custom proof may only be submitted at or after the challenge start and before its proof deadline.
+- An accepted proof unlocks challenge settlement immediately, without waiting for the proof deadline. A rejected, unclear, or pending proof does not unlock early settlement.
+- After settlement, the creator can claim the full success pool with their WDK receive invoice. The API prepares and executes the payout only through the existing explicit claim flow.
+- A failed challenge still waits until the proof deadline before opponents can claim their shares.
 - The API preserves submitted image evidence with the proof record so a pending review can be retried after a process restart.
 - If the local vision model is unavailable or misconfigured, the API fails closed and tells the user that review is unavailable. It does not accept text-only evidence as a substitute for an image the user submitted.
 
@@ -24,6 +28,8 @@ Let a participant submit one photo, written proof, or both, then let the local G
 5. The Goaly chat form sends a text message and optional image to the local QVAC chat service. The chat image is not persisted by the API.
 6. QVAC sends text and image content to a configured vision-capable local model. The reviewer treats all visible image text as untrusted evidence, never as instructions.
 7. The API validates the structured proof verdict and applies existing proof and outcome rules.
+8. If Goaly accepts proof, the challenge page enables settlement at once. The API permits early finalization only when a valid proof is accepted, and it creates the payout plan after the participant selects settle.
+9. The winner submits a WDK receive invoice to claim their allocation. The creator receives the full pool after success. Failure outcomes remain locked until the proof deadline.
 
 ## Limits and storage
 
@@ -34,6 +40,8 @@ Let a participant submit one photo, written proof, or both, then let the local G
 - Supported formats: JPEG, PNG, and WebP. Reject SVG, animated formats, and files whose bytes do not match the declared supported image type.
 - Store image bytes in SQLite with the proof record. Keep proof metadata and existing verdict fields. Do not store public URLs or model chain-of-thought.
 - Preserve the existing one-proof-per-challenge and retry semantics. A pending review retry must use the same statement and image bytes. A user may replace evidence only where existing retry rules allow it.
+- A successful challenge can finalize before its proof deadline only after a timely accepted proof. A failure outcome cannot finalize before the proof deadline.
+- The creator claim form appears only after successful settlement. The payout API remains responsible for checking the signed-in participant's winning allocation.
 
 ## Local model configuration
 
@@ -61,8 +69,11 @@ Let a participant submit one photo, written proof, or both, then let the local G
 6. The local reviewer receives both written and visual evidence with the exact challenge success rule.
 7. The reviewer returns only the existing structured verdicts. Invalid or unavailable image review fails closed.
 8. Existing text-only proof submissions, text-only Goaly chat, and proof retry semantics continue to work.
-9. Tests cover image validation, persistence, retry identity, reviewer payload shape, chat image context, vision unavailability, prompt-injection text in an image, and unchanged text-only behavior.
-10. Existing wallet and payment tests pass unchanged.
+9. A timely accepted proof unlocks settlement before the proof deadline. Pending, rejected, or missing proof cannot finalize early.
+10. After successful settlement, the creator can submit a WDK receive invoice and claim the full pool. Losing participants cannot claim after a successful outcome.
+11. Failure settlement remains unavailable until the proof deadline, and only allocated winners can claim.
+12. Tests cover image validation, persistence, retry identity, reviewer payload shape, chat image context, vision unavailability, prompt-injection text in an image, early success settlement, delayed failure settlement, creator payout, and unchanged text-only behavior.
+13. Existing wallet and payment tests pass unchanged.
 
 ## Out of scope
 
