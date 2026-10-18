@@ -20,6 +20,9 @@ qvac serve --openai --config qvac/qvac.config.mjs
 node qvac/server.mjs
 ```
 
+If port 11434 is already in use, add `--port 11435` to the QVAC command and
+set `QVAC_BASE_URL=http://127.0.0.1:11435` on the Goaly server command.
+
 Create the vault token once and use the same private value for the vault and API terminals:
 
 ```bash

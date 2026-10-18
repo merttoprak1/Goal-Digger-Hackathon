@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { goalyMessages } from "../qvac/goaly.mjs";
 import { goalyBuilderFormat, goalyBuilderMessages, parseGoalyBuilderAnswer } from "../qvac/goaly-builder.mjs";
-import { askQvac } from "../qvac/server.mjs";
+import { askQvac, getHealth } from "../qvac/server.mjs";
 test("Goaly keeps user input separate from its advisory rules", () => {
   const history = [
     { role: "user", content: "I will run 5 km tomorrow" },
@@ -53,4 +53,34 @@ test("local QVAC returns an actual model reply and never a canned fallback", asy
     }),
     (e) => e.status === 503,
   );
+});
+
+test("Goaly and readiness use the configured QVAC base URL", async () => {
+  const previousBaseUrl = process.env.QVAC_BASE_URL;
+  process.env.QVAC_BASE_URL = "http://127.0.0.1:11435";
+  try {
+    const healthUrls = [];
+    const health = await getHealth(async (url) => {
+      healthUrls.push(url);
+      return url.endsWith("/v1/models")
+        ? Response.json({ data: [{ id: "goal-digger" }] })
+        : Response.json({ pubkey: "rgb-node" });
+    });
+    assert.equal(health.status, "ok");
+    assert.ok(healthUrls.includes("http://127.0.0.1:11435/v1/models"));
+
+    await askQvac(
+      goalyMessages([{ role: "user", content: "Set a goal" }]),
+      undefined,
+      async (url) => {
+        assert.equal(url, "http://127.0.0.1:11435/v1/chat/completions");
+        return Response.json({
+          choices: [{ message: { content: "Choose a deadline." } }],
+        });
+      },
+    );
+  } finally {
+    if (previousBaseUrl === undefined) delete process.env.QVAC_BASE_URL;
+    else process.env.QVAC_BASE_URL = previousBaseUrl;
+  }
 });

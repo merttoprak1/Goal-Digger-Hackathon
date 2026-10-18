@@ -24,6 +24,12 @@ Run one process per terminal from the repository root. Keep the RGB node unlocke
    qvac serve --openai --config qvac/qvac.config.mjs
    ```
 
+   If another local service already uses port 11434, start QVAC on an unused
+   port and set the same base URL for the bridge. For example, use
+   `qvac serve --openai --config qvac/qvac.config.mjs --port 11435`, then start
+   the bridge with `QVAC_BASE_URL=http://127.0.0.1:11435 node qvac/server.mjs`.
+   The default remains port 11434 when `QVAC_BASE_URL` is unset.
+
 2. Start Goaly and the RGB health proxy:
 
    ```bash

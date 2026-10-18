@@ -19,6 +19,10 @@ import {
 } from "./assessment.mjs";
 import { getRgbWallet } from "./rgb-wallet.mjs";
 
+function qvacBaseUrl() {
+  return (process.env.QVAC_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
+}
+
 export async function getHealth(fetchService = fetch) {
   async function check(url, validate) {
     try {
@@ -33,7 +37,7 @@ export async function getHealth(fetchService = fetch) {
 
   const [qvac, rgb] = await Promise.all([
     check(
-      "http://127.0.0.1:11434/v1/models",
+      `${qvacBaseUrl()}/v1/models`,
       (body) =>
         Array.isArray(body?.data) &&
         body.data.some((model) => model?.id === "goal-digger"),
@@ -233,7 +237,7 @@ async function readProofReview(request) {
 export async function askQvac(messages, responseFormat, fetchService = fetch) {
   let upstream;
   try {
-    upstream = await fetchService("http://127.0.0.1:11434/v1/chat/completions", {
+    upstream = await fetchService(`${qvacBaseUrl()}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(30_000),
