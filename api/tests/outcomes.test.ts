@@ -293,6 +293,19 @@ it("blocks early failure finalization after rejected proof", async () => {
   expect((await f.post("/finalize")).body.outcome.status).toBe("failure");
 });
 
+it("prepares the creator prize before the betting cutoff", async () => {
+  const f = await setup("custom");
+  await f.opponent();
+  f.time(f.starts - 120000);
+  const proof = await f.post("/proof-note", { statement: "I completed the goal." });
+  expect(proof.body.outcome.status).toBe("success");
+  const plan = await f.post("/payout-plan");
+  expect(plan.status).toBe(200);
+  expect(plan.body.plan.allocations).toEqual([
+    { participantId: f.a.participant.id, amountAtomic: "3000000" },
+  ]);
+});
+
 it("settles paid stakes when another invoice was never paid", async () => {
   const f = await setup("custom");
   await f.opponent();

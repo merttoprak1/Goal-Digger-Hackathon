@@ -139,14 +139,14 @@ export function bettingBook(db: DatabaseSync, now: () => number) {
       .get(id);
     if (!row) throw new ApiError(404, "Published challenge not found.", "NOT_FOUND");
     const challenge = JSON.parse(String(row.result));
-    if (!options?.allowBeforeCutoff && now() < Date.parse(challenge.bettingCutoff))
-      throw new ApiError(409, "Betting is still open.", "BETTING_OPEN");
     const stakes = readFunding(db, challenge);
     const previous = getBettingSnapshot(id);
     if (previous) {
       if (JSON.stringify(previous.stakes) !== JSON.stringify(stakes)) fundingReview();
       return previous;
     }
+    if (!options?.allowBeforeCutoff && now() < Date.parse(challenge.bettingCutoff))
+      throw new ApiError(409, "Betting is still open.", "BETTING_OPEN");
     const opponents = stakes.filter((s) => s.participantId !== challenge.creatorId);
     const opponentTotal = opponents.reduce(
       (total, s) => total + BigInt(s.amountAtomic),
